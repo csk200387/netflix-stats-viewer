@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useState } from 'react'
 import FileDrop from './components/FileDrop'
 import { MonthlyChart, StreakCalendar, TimelineChart, WeekdayChart } from './components/Charts'
+import RecapModal from './components/Recap'
 import { HistoryTable, ShowTable } from './components/Tables'
 import { CsvError, parseViewingHistory, type ParseResult } from './lib/parse'
+import { recapYears } from './lib/recap'
 import { calendarYears, classifyAll, computeStats, fmtDate, fmtDateInput } from './lib/stats'
 
 type Loaded = { fileName: string; result: ParseResult }
@@ -20,6 +22,7 @@ export default function App() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [kind, setKind] = useState<KindFilter>('all')
+  const [recapOpen, setRecapOpen] = useState(false)
 
   const load = useCallback(async (fileName: string, read: () => Promise<string>) => {
     setBusy(true)
@@ -27,6 +30,7 @@ export default function App() {
     try {
       const result = parseViewingHistory(await read())
       setLoaded({ fileName, result })
+      setRecapOpen(false)
       setQuery('')
       setFrom('')
       setTo('')
@@ -77,6 +81,8 @@ export default function App() {
 
   const stats = useMemo(() => computeStats(filtered), [filtered])
   const years = useMemo(() => (stats ? calendarYears(stats.byDay) : []), [stats])
+  // 결산은 필터를 타지 않는다 — 불러온 전체 기록의 연도만 본다
+  const latestRecapYear = useMemo(() => recapYears(entries)[0], [entries])
   const filterOn = query.trim() !== '' || from !== '' || to !== '' || kind !== 'all'
 
   const reset = () => {
@@ -219,6 +225,23 @@ export default function App() {
             </section>
           ) : (
             <>
+              <section className="section" aria-label="연말 결산">
+                <div className="card recap-cta">
+                  <div>
+                    <h2>{latestRecapYear}년 연말 결산</h2>
+                    <p>
+                      한 해 시청 기록을 카드 5장으로 정리해 드립니다. 위쪽 검색·기간·종류 필터와 상관없이
+                      불러온 전체 기록으로 계산하며, 연도는 결산 화면에서 바꿀 수 있습니다.
+                    </p>
+                  </div>
+                  <button type="button" className="btn btn-primary btn-lg" onClick={() => setRecapOpen(true)}>
+                    연말 결산 보기
+                  </button>
+                </div>
+              </section>
+
+              {recapOpen && <RecapModal entries={entries} onClose={() => setRecapOpen(false)} />}
+
               <section className="section" aria-label="요약 통계">
                 <div className="kpis">
                   <div className="kpi kpi-accent">
