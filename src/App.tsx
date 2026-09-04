@@ -81,7 +81,7 @@ export default function App() {
 
   const stats = useMemo(() => computeStats(filtered), [filtered])
   const years = useMemo(() => (stats ? calendarYears(stats.byDay) : []), [stats])
-  // 결산은 필터를 타지 않는다 — 불러온 전체 기록의 연도만 본다
+  // 한 해 돌아보기는 필터를 타지 않는다 — 불러온 전체 기록의 연도만 본다
   const latestRecapYear = useMemo(() => recapYears(entries)[0], [entries])
   const filterOn = query.trim() !== '' || from !== '' || to !== '' || kind !== 'all'
 

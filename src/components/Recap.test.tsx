@@ -92,6 +92,9 @@ describe('RecapModal 공유 카드', () => {
     // 사본에는 모달 조작 버튼이 들어가지 않는다
     const copy = html.slice(html.indexOf('class="recap-export"'))
     expect(copy).not.toContain('<button')
+    // 조작·진행·이동·권한 안내는 PNG 에 찍히면 안 된다
+    for (const chrome of ['이 장 저장', '모든 장 저장', '저장 중', '이전 카드', '다음 카드', '여러 파일 다운로드', '시청 취향이 담깁니다', 'recap-seg'])
+      expect(copy).not.toContain(chrome)
     expect(copy.match(/data-export=/g)).toHaveLength(5)
     for (const id of ['01-overview', '02-top-shows', '03-habits', '04-streak', '05-summary']) expect(copy).toContain(`data-export="${id}"`)
   })
@@ -100,6 +103,7 @@ describe('RecapModal 공유 카드', () => {
     expect(html).toContain('이 장 저장')
     expect(html).toContain('모든 장 저장')
     expect(html).toContain('PNG 5개를 각각 내려받습니다')
+    expect(html).toContain('이미지에 시청 취향이 담깁니다')
   })
 
   it('35일 스트릭 격자와 새 문구를 표시하고 이전 문구는 제거한다', () => {

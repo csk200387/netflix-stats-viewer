@@ -89,9 +89,9 @@ npm run dev      # http://localhost:5173
 src/
   lib/parse.ts       CSV 파싱, 열 탐지, 날짜 해석
   lib/stats.ts       시리즈/영화 분류, 집계
-  lib/recap.ts       연도별 결산 모델, 공유 이미지 설정
-  lib/*.test.ts      파서·통계·결산 테스트 (Vitest)
-  components/        드롭존, 차트, 표, 결산 스토리 뷰어
+  lib/recap.ts       연도별 한 해 돌아보기 모델, 35일 스트릭 창, 공유 이미지 설정
+  lib/*.test.ts      파서·통계·돌아보기 테스트 (Vitest)
+  components/        드롭존, 차트, 표, 돌아보기 스토리 뷰어
   App.tsx            상태·필터·레이아웃
 public/sample-viewing-history.csv   가상 샘플 데이터
 ```

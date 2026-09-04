@@ -38,7 +38,7 @@ export type Recap = {
 }
 
 /**
- * 한 해치 결산을 만든다. 해당 연도에 기록이 없으면 null.
+ * 한 해치 돌아보기를 만든다. 해당 연도에 기록이 없으면 null.
  * 동점은 모두 결정적으로 끊는다 — 작품은 이름순, 달·요일은 앞선 쪽, 날짜는 이른 쪽.
  */
 export function buildRecap(entries: Entry[], year: number): Recap | null {

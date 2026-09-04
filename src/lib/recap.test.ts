@@ -172,6 +172,28 @@ describe('35일 스트릭 창', () => {
     expect(result.streakWindow.every((day) => day.inStreak)).toBe(true)
     expect(result.streakWindow[0].date).toEqual(new Date(2024, 1, 10))
   })
+
+  it('윤년에는 2월 29일을 창 안에 그대로 담는다', () => {
+    const window = buildRecap(entriesOf(['가작', '2024-02-28'], ['가작', '2024-02-29'], ['가작', '2024-03-01']), 2024)!.streakWindow
+    expect(window.some((day) => day.date.getMonth() === 1 && day.date.getDate() === 29)).toBe(true)
+    expect(window.filter((day) => day.inStreak)).toHaveLength(3)
+    expect(window.find((day) => day.date.getMonth() === 2 && day.date.getDate() === 1)?.monthMarker).toBe('3월')
+  })
+
+  it('언제나 하루도 건너뛰지 않고 이어지며 달 표시는 첫 칸과 1일에만 붙는다', () => {
+    for (const [iso, year] of [['2026-07-30', 2026], ['2026-01-01', 2026], ['2026-12-31', 2026], ['2024-02-28', 2024]] as const) {
+      const window = buildRecap(entriesOf(['가작', iso]), year)!.streakWindow
+      expect(window).toHaveLength(35)
+      // 이웃한 칸은 지역 달력으로 정확히 하루 차이
+      for (let i = 1; i < window.length; i++) {
+        const expected = new Date(window[i - 1].date)
+        expected.setDate(expected.getDate() + 1)
+        expect(window[i].date).toEqual(expected)
+      }
+      for (const [i, day] of window.entries())
+        expect(day.monthMarker !== null).toBe(i === 0 || day.date.getDate() === 1)
+    }
+  })
 })
 
 describe('추가 요약 지표', () => {
