@@ -23,7 +23,7 @@ const html = render([
 describe('RecapModal 구조', () => {
   it('카드를 정확히 5장 그린다', () => {
     expect(html.match(/<article/g)).toHaveLength(5)
-    for (const id of ['opening', 'favorites', 'habits', 'momentum', 'share']) {
+    for (const id of ['opening', 'favorites', 'habits', 'streak', 'summary']) {
       expect(html).toContain(`data-card="${id}"`)
     }
   })
@@ -36,10 +36,10 @@ describe('RecapModal 구조', () => {
 
   it('다이얼로그 시맨틱과 이동 수단을 갖춘다', () => {
     expect(html).toContain('<dialog')
-    expect(html).toContain('aria-label="2026년 연말 결산"')
+    expect(html).toContain('aria-label="2026년 한 해 돌아보기"')
     expect(html).toContain('이전 카드')
     expect(html).toContain('다음 카드')
-    expect(html).toContain('연말 결산 닫기')
+    expect(html).toContain('한 해 돌아보기 닫기')
     expect(html.match(/class="recap-seg"/g)).toHaveLength(5)
   })
 })
@@ -72,31 +72,42 @@ describe('RecapModal 순위', () => {
       ['가작', '2026-01-03'],
       ['가작', '2026-01-04'],
     ])
-    const ranks = [...tie.matchAll(/recap-rank-name">([^<]+)</g)].map((m) => m[1])
+    const screen = tie.slice(0, tie.indexOf('class="recap-export"'))
+    const ranks = [...screen.matchAll(/recap-rank-name">([^<]+)</g)].map((m) => m[1])
     expect(ranks).toEqual(['가작', '나작'])
   })
 
   it('작품이 셋보다 적어도 있는 만큼만 낸다', () => {
     const sparse = render([['가작', '2026-07-04']])
-    expect(sparse.match(/recap-rank-name/g)).toHaveLength(1)
-    expect(sparse).toContain('이 해엔 1개 작품이 기록됐어요')
+    const screen = sparse.slice(0, sparse.indexOf('class="recap-export"'))
+    expect(screen.match(/recap-rank-name/g)).toHaveLength(1)
     expect(sparse).toContain('1<small>일 연속</small>')
   })
 })
 
 describe('RecapModal 공유 카드', () => {
-  it('내려받기용 사본을 화면 밖에 360×640 으로 따로 그린다', () => {
+  it('다섯 장 모두 내려받기용 사본을 화면 밖에 360×640 으로 따로 그린다', () => {
     expect(html).toContain('class="recap-export"')
-    expect(html).toContain('style="width:360px;height:640px"')
+    expect(html.match(/style="width:360px;height:640px"/g)).toHaveLength(5)
     // 사본에는 모달 조작 버튼이 들어가지 않는다
     const copy = html.slice(html.indexOf('class="recap-export"'))
     expect(copy).not.toContain('<button')
-    expect(copy).toContain('recap-share')
+    expect(copy.match(/data-export=/g)).toHaveLength(5)
+    for (const id of ['01-overview', '02-top-shows', '03-habits', '04-streak', '05-summary']) expect(copy).toContain(`data-export="${id}"`)
   })
 
   it('저장 버튼과 공유 주의 문구를 함께 둔다', () => {
-    expect(html).toContain('1080×1920 이미지 저장')
-    expect(html).toContain('이미지에 시청 취향이 담깁니다')
+    expect(html).toContain('이 장 저장')
+    expect(html).toContain('모든 장 저장')
+    expect(html).toContain('PNG 5개를 각각 내려받습니다')
+  })
+
+  it('35일 스트릭 격자와 새 문구를 표시하고 이전 문구는 제거한다', () => {
+    const screen = html.slice(0, html.indexOf('class="recap-export"'))
+    expect(screen.match(/recap-streak-cell"/g)).toHaveLength(35)
+    expect(html).toContain('한 해 돌아보기')
+    expect(html).not.toContain('연말 결산')
+    expect(html).not.toContain('브라우저에서만 계산했어요')
   })
 
   it('외부 이미지·폰트를 전혀 쓰지 않는다', () => {

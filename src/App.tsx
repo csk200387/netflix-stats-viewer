@@ -133,7 +133,7 @@ export default function App() {
         <div className="hero-foot">
           <p>
             {loaded
-              ? '검색부터 스트릭, 연말 결산까지. 기록 속에 쌓인 취향을 다시 발견하세요.'
+              ? '검색부터 스트릭, 한 해 돌아보기까지. 기록 속에 쌓인 취향을 다시 발견하세요.'
               : '넷플릭스 시청 기록을 올리면 작품, 날짜, 시청 습관을 한 편의 리포트처럼 보여드립니다.'}
           </p>
           {loaded && (
@@ -249,18 +249,18 @@ export default function App() {
             </section>
           ) : (
             <>
-              <section className="section" aria-label="연말 결산">
+              <section className="section" aria-label="한 해 돌아보기">
                 <div className="card recap-cta">
                   <div className="recap-copy">
                     <p className="recap-cta-kicker">YOUR YEAR ON NETFLIX</p>
-                    <h2>{latestRecapYear}년 연말 결산</h2>
+                    <h2>{latestRecapYear}년 한 해 돌아보기</h2>
                     <p>
                       한 해 시청 기록을 카드 5장으로 정리해 드립니다. 위쪽 검색·기간·종류 필터와 상관없이
-                      불러온 전체 기록으로 계산하며, 연도는 결산 화면에서 바꿀 수 있습니다.
+                      불러온 전체 기록으로 계산하며, 연도는 돌아보기 화면에서 바꿀 수 있습니다.
                     </p>
                   </div>
                   <button type="button" className="btn btn-primary btn-lg" onClick={() => setRecapOpen(true)}>
-                    연말 결산 보기 <span aria-hidden="true">→</span>
+                    한 해 돌아보기 <span aria-hidden="true">→</span>
                   </button>
                   <div className="recap-cta-year" aria-hidden="true">{String(latestRecapYear).slice(2)}</div>
                 </div>
