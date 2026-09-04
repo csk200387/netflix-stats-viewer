@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { LEVEL_LABELS, WEEKDAYS, fmtDate, type CalendarCell, type CalendarYear, type Stats } from '../lib/stats'
 
 const shortMonth = (key: string) => {
@@ -118,14 +117,11 @@ const WEEKDAY_TICKS = [1, 3, 5]
 const cellTitle = (cell: CalendarCell) => {
   const when = fmtDate(cell.date)
   if (cell.count === 0) return `${when} · 시청 없음`
-  const shown = cell.titles.slice(0, 4).join(', ')
-  const rest = cell.titles.length > 4 ? ` 외 ${cell.titles.length - 4}편` : ''
-  return `${when} · ${cell.count}편 — ${shown}${rest}`
+  return `${when} · ${cell.count}편`
 }
 
 /** 일별 시청 잔디. 색이 짙을수록 그날 본 편수가 많다. */
 export function StreakCalendar({ years, busiestDay }: { years: CalendarYear[]; busiestDay: Stats['busiestDay'] }) {
-  const [detail, setDetail] = useState<string | null>(null)
   const summary = busiestDay
     ? `하루 최다 ${busiestDay.count.toLocaleString('ko-KR')}편 (${fmtDate(busiestDay.date)})`
     : '기록 없음'
@@ -134,13 +130,10 @@ export function StreakCalendar({ years, busiestDay }: { years: CalendarYear[]; b
     <div className="card">
       <div className="section-head">
         <h2>일별 시청 잔디</h2>
-        <span className="cal-detail">{detail ?? summary}</span>
+        <span className="cal-detail">{summary}</span>
       </div>
 
-      <div
-        onMouseOver={(e) => setDetail((e.target as HTMLElement).closest<HTMLElement>('.cal-cell')?.title ?? null)}
-        onMouseLeave={() => setDetail(null)}
-      >
+      <div>
         {years.map((y) => (
           <section className="cal-year" key={y.year} aria-label={`${y.year}년 일별 시청 기록`}>
             <div className="cal-year-head">

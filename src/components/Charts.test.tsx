@@ -21,9 +21,10 @@ describe('StreakCalendar', () => {
     expect(html.match(/cal-cell cal-pad/g)).toHaveLength(12)
   })
 
-  it('칸마다 날짜·편수·작품명을 툴팁으로 붙인다', () => {
-    expect(html).toContain('title="2026. 1. 1. · 3편 — 작품 2, 작품 3, 작품 4"')
+  it('칸마다 작품명 없이 날짜·편수만 툴팁으로 붙인다', () => {
+    expect(html).toContain('title="2026. 1. 1. · 3편"')
     expect(html).toContain('title="2026. 1. 2. · 시청 없음"')
+    expect(html).not.toContain('3편 — 작품')
   })
 
   it('편수에 따라 색 단계를 매긴다', () => {
