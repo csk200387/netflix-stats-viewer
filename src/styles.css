@@ -86,7 +86,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .guide-card ol, .guide-card p { margin: 0; color: var(--muted); font-size: 13.5px; }
 .guide-card ol { padding-left: 18px; }
 .guide-card li { margin-bottom: 4px; }
+.guide-card strong { color: var(--text); }
 .guide-card code { background: var(--bg-elev-2); padding: 1px 6px; border-radius: 5px; font-size: 12.5px; }
+.guide-card-download { grid-column: span 2; }
+.download-link {
+  display: inline-flex; margin-top: 14px; border-radius: 9px; padding: 8px 12px;
+  background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; text-decoration: none;
+}
+.download-link:hover { background: #f6121d; }
+.download-link:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.guide-card .guide-hint { margin-top: 9px; font-size: 12px; }
 
 /* ── 알림 ───────────────────────────────────────────── */
 .alert {
@@ -215,6 +224,7 @@ td.title { max-width: 420px; }
 @media (max-width: 520px) {
   .app { padding: 20px 14px 72px; }
   .drop { padding: 40px 16px; }
+  .guide-card-download { grid-column: auto; }
   .filters { grid-template-columns: 1fr; }
   .kpi-value { font-size: 22px; }
 }

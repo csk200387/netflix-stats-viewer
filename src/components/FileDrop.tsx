@@ -103,14 +103,23 @@ export default function FileDrop({ onFile, onSample, busy }: Props) {
       </div>
 
       <div className="guide">
-        <div className="guide-card">
+        <div className="guide-card guide-card-download">
           <h3>시청 기록 CSV 내려받는 법</h3>
           <ol>
-            <li>넷플릭스 웹에서 프로필 선택 → 계정</li>
-            <li>프로필 → <code>시청 기록</code> 열기</li>
-            <li>맨 아래 <code>전체 다운로드</code> 클릭</li>
-            <li>받은 <code>NetflixViewingHistory.csv</code> 를 여기에 올리기</li>
+            <li>넷플릭스 웹에서 분석할 <strong>프로필</strong>로 전환</li>
+            <li><code>계정</code> → <code>프로필</code> → <code>시청 기록</code> 열기</li>
+            <li>기록 아래의 <code>더 보기</code>를 누른 뒤 <code>모두 다운로드</code> 클릭</li>
+            <li>받은 <code>NetflixViewingHistory.csv</code>를 위에 올리기</li>
           </ol>
+          <a
+            className="download-link"
+            href="https://www.netflix.com/viewingactivity"
+            target="_blank"
+            rel="noreferrer"
+          >
+            넷플릭스 시청 기록 페이지 열기 ↗
+          </a>
+          <p className="guide-hint">로그인이 필요하며, 선택한 프로필의 기록만 내려받아집니다.</p>
         </div>
         <div className="guide-card">
           <h3>필요한 형식</h3>
