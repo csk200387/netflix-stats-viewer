@@ -59,7 +59,8 @@ export default function FileDrop({ onFile, onSample, busy }: Props) {
           take(e.dataTransfer.files)
         }}
       >
-        <div className="drop-icon" aria-hidden="true">📼</div>
+        <p className="drop-kicker">DROP YOUR WATCH HISTORY</p>
+        <div className="drop-icon" aria-hidden="true"><span>CSV</span></div>
         <h2>{busy ? '분석하는 중…' : 'NetflixViewingHistory.csv 를 여기에 놓아주세요'}</h2>
         <p>넷플릭스에서 내려받은 시청 기록 CSV를 끌어다 놓거나, 아래 버튼으로 직접 선택할 수 있습니다.</p>
         <div className="drop-actions">

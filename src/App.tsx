@@ -97,11 +97,9 @@ export default function App() {
       <header className="header">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">N</span>
-          <div>
-            <h1>넷플릭스 시청 통계 뷰어</h1>
-            <p>{loaded ? loaded.fileName : '내 시청 기록을 브라우저 안에서만 분석합니다'}</p>
-          </div>
+          <span className="brand-name">WATCHED</span>
         </div>
+        <p className="header-privacy"><span aria-hidden="true" />100% PRIVATE · IN YOUR BROWSER</p>
         {loaded && (
           <div className="header-actions">
             <button type="button" className="btn" onClick={reset} disabled={!filterOn}>
@@ -121,6 +119,31 @@ export default function App() {
           </div>
         )}
       </header>
+
+      <section className={`hero${loaded ? ' hero-loaded' : ''}`} aria-labelledby="page-title">
+        <div className="hero-kicker">
+          <span>PERSONAL STREAMING ARCHIVE</span>
+          <span>{loaded ? loaded.fileName : 'NETFLIX VIEWING HISTORY'}</span>
+        </div>
+        <h1 id="page-title">
+          {loaded ? '당신의 시청 기록,' : '보는 취향을'}
+          <br />
+          <em>{loaded ? '한눈에.' : '데이터로.'}</em>
+        </h1>
+        <div className="hero-foot">
+          <p>
+            {loaded
+              ? '검색부터 스트릭, 연말 결산까지. 기록 속에 쌓인 취향을 다시 발견하세요.'
+              : '넷플릭스 시청 기록을 올리면 작품, 날짜, 시청 습관을 한 편의 리포트처럼 보여드립니다.'}
+          </p>
+          {loaded && (
+            <div className="hero-pills" aria-label="불러온 기록 요약">
+              <span>{num(entries.length)} WATCHES</span>
+              <span>{recapYears(entries).length} YEARS</span>
+            </div>
+          )}
+        </div>
+      </section>
 
       {error && (
         <div className="alert alert-error" role="alert">
@@ -160,6 +183,7 @@ export default function App() {
           )}
 
           <section className="section" aria-label="필터">
+            <div className="section-intro" aria-hidden="true"><span>01</span><p>EXPLORE YOUR HISTORY</p></div>
             <div className="card">
               <div className="filters">
                 <div className="field field-search">
@@ -227,7 +251,8 @@ export default function App() {
             <>
               <section className="section" aria-label="연말 결산">
                 <div className="card recap-cta">
-                  <div>
+                  <div className="recap-copy">
+                    <p className="recap-cta-kicker">YOUR YEAR ON NETFLIX</p>
                     <h2>{latestRecapYear}년 연말 결산</h2>
                     <p>
                       한 해 시청 기록을 카드 5장으로 정리해 드립니다. 위쪽 검색·기간·종류 필터와 상관없이
@@ -235,14 +260,16 @@ export default function App() {
                     </p>
                   </div>
                   <button type="button" className="btn btn-primary btn-lg" onClick={() => setRecapOpen(true)}>
-                    연말 결산 보기
+                    연말 결산 보기 <span aria-hidden="true">→</span>
                   </button>
+                  <div className="recap-cta-year" aria-hidden="true">{String(latestRecapYear).slice(2)}</div>
                 </div>
               </section>
 
               {recapOpen && <RecapModal entries={entries} onClose={() => setRecapOpen(false)} />}
 
               <section className="section" aria-label="요약 통계">
+                <div className="section-intro" aria-hidden="true"><span>02</span><p>AT A GLANCE</p></div>
                 <div className="kpis">
                   <div className="kpi kpi-accent">
                     <div className="kpi-label">총 시청 항목</div>
@@ -294,12 +321,16 @@ export default function App() {
                 </div>
               </section>
 
-              <section className="section charts" aria-label="시간별 통계">
-                <MonthlyChart months={stats.byMonth} />
-                <WeekdayChart weekdays={stats.byWeekday} />
+              <section className="section" aria-label="시간별 통계">
+                <div className="section-intro" aria-hidden="true"><span>03</span><p>WATCH PATTERNS</p></div>
+                <div className="charts">
+                  <MonthlyChart months={stats.byMonth} />
+                  <WeekdayChart weekdays={stats.byWeekday} />
+                </div>
               </section>
 
               <section className="section">
+                <div className="section-intro" aria-hidden="true"><span>04</span><p>DAILY RHYTHM</p></div>
                 <StreakCalendar years={years} busiestDay={stats.busiestDay} />
               </section>
 
@@ -308,6 +339,7 @@ export default function App() {
               </section>
 
               <section className="section">
+                <div className="section-intro" aria-hidden="true"><span>05</span><p>YOUR LIBRARY</p></div>
                 <ShowTable shows={stats.shows} />
               </section>
 
