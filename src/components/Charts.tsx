@@ -1,4 +1,5 @@
-import type { Stats } from '../lib/stats'
+import { useState } from 'react'
+import { LEVEL_LABELS, WEEKDAYS, fmtDate, type CalendarCell, type CalendarYear, type Stats } from '../lib/stats'
 
 const shortMonth = (key: string) => {
   const [y, m] = key.split('-')
@@ -105,6 +106,93 @@ export function TimelineChart({ months }: { months: Stats['byMonth'] }) {
       <div className="timeline-axis">
         <span>{months[0].label}</span>
         <span>{months[months.length - 1].label}</span>
+      </div>
+    </div>
+  )
+}
+
+
+/** 요일 축은 월·수·금만 적어 격자가 빽빽해지지 않게 한다. */
+const WEEKDAY_TICKS = [1, 3, 5]
+
+const cellTitle = (cell: CalendarCell) => {
+  const when = fmtDate(cell.date)
+  if (cell.count === 0) return `${when} · 시청 없음`
+  const shown = cell.titles.slice(0, 4).join(', ')
+  const rest = cell.titles.length > 4 ? ` 외 ${cell.titles.length - 4}편` : ''
+  return `${when} · ${cell.count}편 — ${shown}${rest}`
+}
+
+/** 일별 시청 잔디. 색이 짙을수록 그날 본 편수가 많다. */
+export function StreakCalendar({ years, busiestDay }: { years: CalendarYear[]; busiestDay: Stats['busiestDay'] }) {
+  const [detail, setDetail] = useState<string | null>(null)
+  const summary = busiestDay
+    ? `하루 최다 ${busiestDay.count.toLocaleString('ko-KR')}편 (${fmtDate(busiestDay.date)})`
+    : '기록 없음'
+
+  return (
+    <div className="card">
+      <div className="section-head">
+        <h2>일별 시청 잔디</h2>
+        <span className="cal-detail">{detail ?? summary}</span>
+      </div>
+
+      <div
+        onMouseOver={(e) => setDetail((e.target as HTMLElement).closest<HTMLElement>('.cal-cell')?.title ?? null)}
+        onMouseLeave={() => setDetail(null)}
+      >
+        {years.map((y) => (
+          <section className="cal-year" key={y.year} aria-label={`${y.year}년 일별 시청 기록`}>
+            <div className="cal-year-head">
+              <h3>{y.year}</h3>
+              <span>
+                {y.total.toLocaleString('ko-KR')}건 · {y.activeDays.toLocaleString('ko-KR')}일 시청
+              </span>
+            </div>
+            <div className="chart-scroll">
+              <div className="cal-body">
+                <div className="cal-weekdays" aria-hidden="true">
+                  {WEEKDAYS.map((w, i) => (
+                    <span key={w}>{WEEKDAY_TICKS.includes(i) ? w : ''}</span>
+                  ))}
+                </div>
+                <div>
+                  <div
+                    className="cal-months"
+                    style={{ gridTemplateColumns: `repeat(${y.weeks.length}, var(--cal-cell))` }}
+                    aria-hidden="true"
+                  >
+                    {y.months.map((m) => (
+                      <span key={m.label} style={{ gridColumn: m.week + 1 }}>
+                        {m.label}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="cal-grid">
+                    {y.weeks.map((week, wi) =>
+                      week.map((cell, di) =>
+                        cell ? (
+                          <div key={cell.key} className="cal-cell" data-level={cell.level} title={cellTitle(cell)} />
+                        ) : (
+                          <div key={`pad-${wi}-${di}`} className="cal-cell cal-pad" />
+                        ),
+                      ),
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <div className="cal-legend">
+        <span>적음</span>
+        {[0, 1, 2, 3, 4].map((level) => (
+          <i key={level} className="cal-cell" data-level={level} />
+        ))}
+        <span>많음</span>
+        <span className="visually-hidden">색 단계: 시청 없음, {LEVEL_LABELS.join(', ')}</span>
       </div>
     </div>
   )

@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState } from 'react'
 import FileDrop from './components/FileDrop'
-import { MonthlyChart, TimelineChart, WeekdayChart } from './components/Charts'
+import { MonthlyChart, StreakCalendar, TimelineChart, WeekdayChart } from './components/Charts'
 import { HistoryTable, ShowTable } from './components/Tables'
 import { CsvError, parseViewingHistory, type ParseResult } from './lib/parse'
-import { classifyAll, computeStats, fmtDate, fmtDateInput } from './lib/stats'
+import { calendarYears, classifyAll, computeStats, fmtDate, fmtDateInput } from './lib/stats'
 
 type Loaded = { fileName: string; result: ParseResult }
 type KindFilter = 'all' | 'series' | 'movie'
@@ -76,6 +76,7 @@ export default function App() {
   }, [entries, query, from, to, kind])
 
   const stats = useMemo(() => computeStats(filtered), [filtered])
+  const years = useMemo(() => (stats ? calendarYears(stats.byDay) : []), [stats])
   const filterOn = query.trim() !== '' || from !== '' || to !== '' || kind !== 'all'
 
   const reset = () => {
@@ -253,9 +254,18 @@ export default function App() {
                     <div className="kpi-label">최장 연속 시청</div>
                     <div className="kpi-value">{num(stats.longestStreak?.days ?? 0)}<small>일</small></div>
                     <div className="kpi-sub">
-                      {stats.busiestDay
-                        ? `하루 최다 ${num(stats.busiestDay.count)}편 (${fmtDate(stats.busiestDay.date)})`
-                        : ''}
+                      {stats.longestStreak
+                        ? `${fmtDate(stats.longestStreak.from)} ~ ${fmtDate(stats.longestStreak.to)}`
+                        : '기록 없음'}
+                    </div>
+                  </div>
+                  <div className="kpi">
+                    <div className="kpi-label">현재 연속 시청</div>
+                    <div className="kpi-value">{num(stats.currentStreak?.days ?? 0)}<small>일</small></div>
+                    <div className="kpi-sub">
+                      {stats.currentStreak
+                        ? `${fmtDate(stats.currentStreak.from)}부터 진행 중`
+                        : `마지막 시청 ${fmtDate(stats.last)}`}
                     </div>
                   </div>
                 </div>
@@ -264,6 +274,10 @@ export default function App() {
               <section className="section charts" aria-label="시간별 통계">
                 <MonthlyChart months={stats.byMonth} />
                 <WeekdayChart weekdays={stats.byWeekday} />
+              </section>
+
+              <section className="section">
+                <StreakCalendar years={years} busiestDay={stats.busiestDay} />
               </section>
 
               <section className="section">
