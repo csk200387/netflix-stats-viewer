@@ -136,6 +136,9 @@ export function StreakCalendar({ years, busiestDay }: { years: CalendarYear[]; b
     ? `하루 최다 ${busiestDay.count.toLocaleString('ko-KR')}편 (${fmtDate(busiestDay.date)})`
     : '기록 없음'
 
+  const visibleYears =
+    highlight === '' ? years : years.filter((y) => y.weeks.some((week) => week.some((cell) => cell?.shows.includes(highlight))))
+
   return (
     <div className="card">
       <div className="section-head">
@@ -159,7 +162,8 @@ export function StreakCalendar({ years, busiestDay }: { years: CalendarYear[]; b
 
       <div className="cal-layout">
         <div className="cal-years">
-          {years.map((y) => (
+          {visibleYears.length === 0 && <p className="cal-side-empty">이 작품을 본 해가 없습니다.</p>}
+          {visibleYears.map((y) => (
             <section className="cal-year" key={y.year} aria-label={`${y.year}년 일별 시청 기록`}>
               <div className="cal-year-head">
                 <h3>{y.year}</h3>
