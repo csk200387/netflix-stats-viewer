@@ -21,17 +21,17 @@ const html = render([
 ])
 
 describe('RecapModal 구조', () => {
-  it('카드를 정확히 5장 그린다', () => {
-    expect(html.match(/<article/g)).toHaveLength(5)
-    for (const id of ['opening', 'favorites', 'habits', 'streak', 'summary']) {
+  it('카드를 정확히 6장 그린다', () => {
+    expect(html.match(/<article/g)).toHaveLength(6)
+    for (const id of ['opening', 'favorites', 'habits', 'streak', 'fullyear', 'summary']) {
       expect(html).toContain(`data-card="${id}"`)
     }
   })
 
   it('첫 카드만 활성이고 나머지는 스크린리더·포커스에서 빠진다', () => {
     expect(html).toContain('aria-label="1. 한 해 요약" aria-hidden="false"')
-    expect(html.match(/aria-hidden="true" inert=""/g)).toHaveLength(4)
-    expect(html).toContain('1 / 5')
+    expect(html.match(/aria-hidden="true" inert=""/g)).toHaveLength(5)
+    expect(html).toContain('1 / 6')
   })
 
   it('다이얼로그 시맨틱과 이동 수단을 갖춘다', () => {
@@ -40,7 +40,7 @@ describe('RecapModal 구조', () => {
     expect(html).toContain('이전 카드')
     expect(html).toContain('다음 카드')
     expect(html).toContain('한 해 돌아보기 닫기')
-    expect(html.match(/class="recap-seg"/g)).toHaveLength(5)
+    expect(html.match(/class="recap-seg"/g)).toHaveLength(6)
   })
 })
 
@@ -86,23 +86,23 @@ describe('RecapModal 순위', () => {
 })
 
 describe('RecapModal 공유 카드', () => {
-  it('다섯 장 모두 내려받기용 사본을 화면 밖에 360×640 으로 따로 그린다', () => {
+  it('여섯 장 모두 내려받기용 사본을 화면 밖에 360×640 으로 따로 그린다', () => {
     expect(html).toContain('class="recap-export"')
-    expect(html.match(/style="width:360px;height:640px"/g)).toHaveLength(5)
+    expect(html.match(/style="width:360px;height:640px"/g)).toHaveLength(6)
     // 사본에는 모달 조작 버튼이 들어가지 않는다
     const copy = html.slice(html.indexOf('class="recap-export"'))
     expect(copy).not.toContain('<button')
     // 조작·진행·이동·권한 안내는 PNG 에 찍히면 안 된다
     for (const chrome of ['이 장 저장', '모든 장 저장', '저장 중', '이전 카드', '다음 카드', '여러 파일 다운로드', '시청 취향이 담깁니다', 'recap-seg'])
       expect(copy).not.toContain(chrome)
-    expect(copy.match(/data-export=/g)).toHaveLength(5)
-    for (const id of ['01-overview', '02-top-shows', '03-habits', '04-streak', '05-summary']) expect(copy).toContain(`data-export="${id}"`)
+    expect(copy.match(/data-export=/g)).toHaveLength(6)
+    for (const id of ['01-overview', '02-top-shows', '03-habits', '04-streak', '05-full-year', '06-summary']) expect(copy).toContain(`data-export="${id}"`)
   })
 
   it('저장 버튼과 공유 주의 문구를 함께 둔다', () => {
     expect(html).toContain('이 장 저장')
     expect(html).toContain('모든 장 저장')
-    expect(html).toContain('PNG 5개를 각각 내려받습니다')
+    expect(html).toContain('PNG 6개를 각각 내려받습니다')
     expect(html).toContain('이미지에 시청 취향이 담깁니다')
   })
 

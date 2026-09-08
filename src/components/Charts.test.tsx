@@ -15,8 +15,10 @@ const html = (() => {
 
 describe('StreakCalendar', () => {
   it('해마다 365칸을 그리고, 해 밖의 자리만 빈 칸으로 둔다', () => {
-    // 격자 730칸(2년) + 범례 5칸
-    expect(html.match(/class="cal-cell"/g)).toHaveLength(365 * 2 + 5)
+    // 격자 730칸(2년)
+    expect(html.match(/cal-cell-btn/g)).toHaveLength(365 * 2)
+    // 범례 5칸
+    expect(html.match(/class="cal-cell"/g)).toHaveLength(5)
     // 2025년 앞뒤 3칸씩, 2026년 앞 4칸·뒤 2칸
     expect(html.match(/cal-cell cal-pad/g)).toHaveLength(12)
   })

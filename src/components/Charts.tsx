@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { LEVEL_LABELS, WEEKDAYS, fmtDate, type CalendarCell, type CalendarYear, type Stats } from '../lib/stats'
 
 const shortMonth = (key: string) => {
@@ -122,6 +123,15 @@ const cellTitle = (cell: CalendarCell) => {
 
 /** 일별 시청 잔디. 색이 짙을수록 그날 본 편수가 많다. */
 export function StreakCalendar({ years, busiestDay }: { years: CalendarYear[]; busiestDay: Stats['busiestDay'] }) {
+  const [selected, setSelected] = useState<CalendarCell | null>(null)
+  const [highlight, setHighlight] = useState('')
+
+  const allShows = useMemo(() => {
+    const set = new Set<string>()
+    for (const y of years) for (const week of y.weeks) for (const cell of week) for (const s of cell?.shows ?? []) set.add(s)
+    return [...set].sort((a, b) => a.localeCompare(b, 'ko'))
+  }, [years])
+
   const summary = busiestDay
     ? `하루 최다 ${busiestDay.count.toLocaleString('ko-KR')}편 (${fmtDate(busiestDay.date)})`
     : '기록 없음'
@@ -133,50 +143,97 @@ export function StreakCalendar({ years, busiestDay }: { years: CalendarYear[]; b
         <span className="cal-detail">{summary}</span>
       </div>
 
-      <div>
-        {years.map((y) => (
-          <section className="cal-year" key={y.year} aria-label={`${y.year}년 일별 시청 기록`}>
-            <div className="cal-year-head">
-              <h3>{y.year}</h3>
-              <span>
-                {y.total.toLocaleString('ko-KR')}건 · {y.activeDays.toLocaleString('ko-KR')}일 시청
-              </span>
-            </div>
-            <div className="chart-scroll">
-              <div className="cal-body">
-                <div className="cal-weekdays" aria-hidden="true">
-                  {WEEKDAYS.map((w, i) => (
-                    <span key={w}>{WEEKDAY_TICKS.includes(i) ? w : ''}</span>
-                  ))}
-                </div>
-                <div>
-                  <div
-                    className="cal-months"
-                    style={{ gridTemplateColumns: `repeat(${y.weeks.length}, var(--cal-cell))` }}
-                    aria-hidden="true"
-                  >
-                    {y.months.map((m) => (
-                      <span key={m.label} style={{ gridColumn: m.week + 1 }}>
-                        {m.label}
-                      </span>
+      {allShows.length > 0 && (
+        <div className="field cal-highlight">
+          <label htmlFor="cal-highlight-show">작품 하이라이트</label>
+          <select id="cal-highlight-show" value={highlight} onChange={(e) => setHighlight(e.target.value)}>
+            <option value="">전체 보기</option>
+            {allShows.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div className="cal-layout">
+        <div className="cal-years">
+          {years.map((y) => (
+            <section className="cal-year" key={y.year} aria-label={`${y.year}년 일별 시청 기록`}>
+              <div className="cal-year-head">
+                <h3>{y.year}</h3>
+                <span>
+                  {y.total.toLocaleString('ko-KR')}건 · {y.activeDays.toLocaleString('ko-KR')}일 시청
+                </span>
+              </div>
+              <div className="chart-scroll">
+                <div className="cal-body">
+                  <div className="cal-weekdays" aria-hidden="true">
+                    {WEEKDAYS.map((w, i) => (
+                      <span key={w}>{WEEKDAY_TICKS.includes(i) ? w : ''}</span>
                     ))}
                   </div>
-                  <div className="cal-grid">
-                    {y.weeks.map((week, wi) =>
-                      week.map((cell, di) =>
-                        cell ? (
-                          <div key={cell.key} className="cal-cell" data-level={cell.level} title={cellTitle(cell)} />
-                        ) : (
-                          <div key={`pad-${wi}-${di}`} className="cal-cell cal-pad" />
-                        ),
-                      ),
-                    )}
+                  <div>
+                    <div
+                      className="cal-months"
+                      style={{ gridTemplateColumns: `repeat(${y.weeks.length}, var(--cal-cell))` }}
+                      aria-hidden="true"
+                    >
+                      {y.months.map((m) => (
+                        <span key={m.label} style={{ gridColumn: m.week + 1 }}>
+                          {m.label}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="cal-grid">
+                      {y.weeks.map((week, wi) =>
+                        week.map((cell, di) => {
+                          if (!cell) return <div key={`pad-${wi}-${di}`} className="cal-cell cal-pad" />
+                          const matched = highlight !== '' && cell.shows.includes(highlight)
+                          const dimmed = highlight !== '' && !matched
+                          const isSelected = selected?.key === cell.key
+                          return (
+                            <button
+                              key={cell.key}
+                              type="button"
+                              className={`cal-cell cal-cell-btn${matched ? ' cal-cell-match' : ''}${dimmed ? ' cal-cell-dim' : ''}${isSelected ? ' cal-cell-selected' : ''}`}
+                              data-level={cell.level}
+                              title={cellTitle(cell)}
+                              onClick={() => setSelected(cell)}
+                            />
+                          )
+                        }),
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </section>
-        ))}
+            </section>
+          ))}
+        </div>
+
+        <aside className="cal-side" aria-label="선택한 날짜 상세">
+          {!selected ? (
+            <p className="cal-side-empty">칸을 클릭하면 그날 본 작품을 보여드립니다.</p>
+          ) : (
+            <>
+              <div className="cal-side-head">
+                <h3>{fmtDate(selected.date)}</h3>
+                <span>{selected.count.toLocaleString('ko-KR')}편</span>
+              </div>
+              {selected.titles.length === 0 ? (
+                <p className="cal-side-empty">시청 기록이 없습니다.</p>
+              ) : (
+                <ul className="cal-side-list">
+                  {selected.titles.map((t, i) => (
+                    <li key={`${t}-${i}`}>{t}</li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </aside>
       </div>
 
       <div className="cal-legend">

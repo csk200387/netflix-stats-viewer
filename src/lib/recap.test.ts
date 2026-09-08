@@ -124,13 +124,14 @@ describe('공유 이미지 설정', () => {
   })
 
   it('파일 이름에 연도를 넣는다', () => {
-    expect(RECAP_EXPORTS).toHaveLength(5)
+    expect(RECAP_EXPORTS).toHaveLength(6)
     expect(RECAP_EXPORTS.map((_, i) => recapFileName(2026, i))).toEqual([
       '2026-year-in-review-01-overview.png',
       '2026-year-in-review-02-top-shows.png',
       '2026-year-in-review-03-habits.png',
       '2026-year-in-review-04-streak.png',
-      '2026-year-in-review-05-summary.png',
+      '2026-year-in-review-05-full-year.png',
+      '2026-year-in-review-06-summary.png',
     ])
   })
 })

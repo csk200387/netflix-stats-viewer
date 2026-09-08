@@ -88,7 +88,7 @@ export type ShowSummary = {
 export type Streak = { days: number; from: Date; to: Date }
 
 /** 지역 시간대 달력 하루 단위 집계. */
-export type DayCount = { key: string; date: Date; count: number; titles: string[] }
+export type DayCount = { key: string; date: Date; count: number; titles: string[]; shows: string[] }
 
 export type Stats = {
   total: number
@@ -157,9 +157,10 @@ export function computeStats(entries: Entry[], today = new Date()): Stats | null
 
   for (const e of entries) {
     const dk = dayKey(e.date)
-    const day = perDay.get(dk) ?? { key: dk, date: parseDayKey(dk), count: 0, titles: [] }
+    const day = perDay.get(dk) ?? { key: dk, date: parseDayKey(dk), count: 0, titles: [], shows: [] }
     day.count++
     day.titles.push(e.title)
+    day.shows.push(e.show)
     perDay.set(dk, day)
     byWeekday[e.date.getDay()]++
 
@@ -301,7 +302,7 @@ export function calendarYears(byDay: DayCount[]): CalendarYear[] {
         const key = dayKey(day)
         const hit = found.get(key)
         const count = hit?.count ?? 0
-        week.push({ key, date: day, count, titles: hit?.titles ?? [], level: levelOf(count) })
+        week.push({ key, date: day, count, titles: hit?.titles ?? [], shows: hit?.shows ?? [], level: levelOf(count) })
         total += count
         if (count > 0) activeDays++
         if (day.getDate() === 1) months.push({ label: `${day.getMonth() + 1}월`, week: weeks.length })

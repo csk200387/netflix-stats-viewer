@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { RECAP_EXPORTS, SHARE_CARD, buildRecap, recapFileName, recapYears, sharePngOptions, type Recap, type RecapShow } from '../lib/recap'
 import { levelOf, fmtDate, type Entry } from '../lib/stats'
 
 const num = (n: number) => n.toLocaleString('ko-KR')
 const unit = (s: RecapShow) => (s.kind === 'series' ? '화' : '회')
 const pct = (part: number, whole: number) => (whole === 0 ? 0 : Math.round((part / whole) * 100))
-const CARDS = ['opening', 'favorites', 'habits', 'streak', 'summary'] as const
+const CARDS = ['opening', 'favorites', 'habits', 'streak', 'fullyear', 'summary'] as const
 type CardId = (typeof CARDS)[number]
-const CARD_TITLES: Record<CardId, string> = { opening: '한 해 요약', favorites: '가장 많이 본 작품', habits: '나의 시청 습관', streak: '가장 길었던 스트릭', summary: '종합 공유 카드' }
+const CARD_TITLES: Record<CardId, string> = { opening: '한 해 요약', favorites: '가장 많이 본 작품', habits: '나의 시청 습관', streak: '가장 길었던 스트릭', fullyear: '연중 시청 잔디', summary: '종합 공유 카드' }
+/** 4px 셀로 365~366칸을 한 화면에 맞춘다 */
+const FULL_YEAR_GRID_VARS = { '--cal-cell': '3px', '--cal-gap': '1px' } as CSSProperties
 
 function Split({ recap }: { recap: Recap }) {
   const seriesShare = pct(recap.seriesViews, recap.total)
@@ -58,6 +60,14 @@ function CardBody({ id, recap }: { id: CardId; recap: Recap }) {
   if (id === 'streak') return <div className="recap-body recap-streak-body"><p className="recap-eyebrow">가장 길었던 스트릭</p>
     <p className="recap-big">{num(recap.longestStreak.days)}<small>일 연속</small></p><p className="recap-line recap-muted">{fmtDate(recap.longestStreak.from)} ~ {fmtDate(recap.longestStreak.to)}</p><StreakCalendar recap={recap} />
   </div>
+  if (id === 'fullyear') return <div className="recap-body recap-fullyear-body"><p className="recap-eyebrow">연중 시청 잔디</p>
+    <div className="cal-grid recap-fullyear-grid" style={FULL_YEAR_GRID_VARS} role="img" aria-label={`${recap.year}년 일별 시청 그래프, 시청한 날 ${recap.activeDays}일`}>
+      {recap.calendarYear.weeks.map((week, wi) => week.map((cell, di) => cell
+        ? <span key={cell.key} className="cal-cell" data-level={cell.level} />
+        : <span key={`pad-${wi}-${di}`} className="cal-cell cal-pad" />))}
+    </div>
+    <p className="recap-line recap-muted">{num(recap.activeDays)}일 시청 · {num(recap.total)}건</p>
+  </div>
   const top = recap.topShows[0]
   return <div className="recap-body recap-share"><p className="recap-eyebrow">{recap.year} · 한 해 돌아보기</p><p className="recap-share-headline">올해 <strong>{num(recap.total)}</strong>건을 봤어요</p>
     <dl className="recap-figures"><div><dt>시청한 날</dt><dd>{num(recap.activeDays)}일</dd></div><div><dt>본 작품</dt><dd>{num(recap.showCount)}개</dd></div><div><dt>최장 스트릭</dt><dd>{num(recap.longestStreak.days)}일</dd></div><div><dt>하루 평균</dt><dd>{recap.perActiveDay.toFixed(1)}편</dd></div></dl>
@@ -97,7 +107,7 @@ export default function RecapModal({ entries, onClose }: { entries: Entry[]; onC
         <button type="button" className="recap-zone recap-zone-prev" onClick={() => go(-1)} disabled={index === 0}><span aria-hidden="true">‹</span><span className="visually-hidden">이전 카드</span></button><button type="button" className="recap-zone recap-zone-next" onClick={() => go(1)} disabled={index === CARDS.length - 1}><span aria-hidden="true">›</span><span className="visually-hidden">다음 카드</span></button>
       </div>
       <div className="recap-actions recap-actions-global"><div className="recap-action-buttons"><button type="button" className="btn" onClick={() => downloadCards([index])} disabled={saving}>이 장 저장</button><button type="button" className="btn btn-primary" onClick={() => downloadCards(CARDS.map((_, cardIndex) => cardIndex))} disabled={saving} aria-busy={saving}>{saving ? saveProgress ?? '저장 준비 중…' : '모든 장 저장'}</button></div>
-        <p className="recap-warn">모든 장 저장 시 PNG 5개를 각각 내려받습니다. 브라우저가 여러 파일 다운로드 허용을 요청할 수 있습니다.</p><p className="recap-warn">이미지에 시청 취향이 담깁니다. 공유 전에 내용을 한 번 확인해 주세요.</p>{saveProgress && !saving && !saveError && <p className="recap-success" role="status">{saveProgress}</p>}{saveError && <p className="recap-error" role="alert">{saveError}</p>}</div>
+        <p className="recap-warn">모든 장 저장 시 PNG {CARDS.length}개를 각각 내려받습니다. 브라우저가 여러 파일 다운로드 허용을 요청할 수 있습니다.</p><p className="recap-warn">이미지에 시청 취향이 담깁니다. 공유 전에 내용을 한 번 확인해 주세요.</p>{saveProgress && !saving && !saveError && <p className="recap-success" role="status">{saveProgress}</p>}{saveError && <p className="recap-error" role="alert">{saveError}</p>}</div>
       <p className="recap-note">화면 위쪽 검색·기간·종류 필터와 상관없이, 불러온 전체 기록 중 {recap.year}년만 계산한 결과입니다.</p>
     </div>
     <div className="recap-export" aria-hidden="true">{CARDS.map((id, cardIndex) => <div key={id} ref={(node) => { exportRefs.current[cardIndex] = node }} className="recap-card" data-card={id} data-export={RECAP_EXPORTS[cardIndex]} style={{ width: SHARE_CARD.width, height: SHARE_CARD.height }}><CardBody id={id} recap={recap} /></div>)}</div>

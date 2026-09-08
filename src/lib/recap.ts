@@ -1,6 +1,6 @@
 /** 한 해 돌아보기 모델. 화면 필터와 무관하게 "불러온 전체 기록"의 한 해만 잘라 계산한다. */
 
-import { computeStats, type Entry, type Kind, type Streak } from './stats'
+import { calendarYears, computeStats, type CalendarYear, type Entry, type Kind, type Streak } from './stats'
 
 /** 기록이 있는 연도. 최신 연도가 앞에 온다. */
 export function recapYears(entries: Entry[]): number[] {
@@ -33,6 +33,8 @@ export type Recap = {
   longestStreak: Streak
   /** 최장 스트릭 주변을 월 경계와 무관하게 펼친 35일(7×5) */
   streakWindow: RecapCalendarDay[]
+  /** 해당 연도 전체 달력 격자(365~366칸) */
+  calendarYear: CalendarYear
   seriesViews: number
   movieViews: number
 }
@@ -72,6 +74,7 @@ export function buildRecap(entries: Entry[], year: number): Recap | null {
     monthlyAverage: stats.total / 12,
     longestStreak: stats.longestStreak,
     streakWindow: buildStreakWindow(stats.byDay, stats.longestStreak, year),
+    calendarYear: calendarYears(stats.byDay)[0]!,
     seriesViews: stats.episodeCount,
     movieViews: stats.total - stats.episodeCount,
   }
@@ -86,7 +89,8 @@ export const RECAP_EXPORTS = [
   '02-top-shows',
   '03-habits',
   '04-streak',
-  '05-summary',
+  '05-full-year',
+  '06-summary',
 ] as const
 
 export const recapFileName = (year: number, index = 0) =>
