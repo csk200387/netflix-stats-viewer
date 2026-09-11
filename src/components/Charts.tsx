@@ -140,7 +140,7 @@ export function StreakCalendar({ years, busiestDay }: { years: CalendarYear[]; b
     highlight === '' ? years : years.filter((y) => y.weeks.some((week) => week.some((cell) => cell?.shows.includes(highlight))))
 
   return (
-    <div className="card">
+    <div className="card cal-card">
       <div className="section-head">
         <h2>일별 시청 잔디</h2>
         <span className="cal-detail">{summary}</span>
