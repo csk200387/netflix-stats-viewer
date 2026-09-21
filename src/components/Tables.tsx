@@ -34,9 +34,12 @@ const KindTag = ({ kind }: { kind: 'series' | 'movie' }) => (
   <span className={`tag tag-${kind}`}>{kind === 'series' ? '시리즈' : '영화'}</span>
 )
 
-/** 작품별 집계 — 총 시청 횟수(재시청 포함)와 실제로 본 화 수를 나눠 보여준다. */
+/** 같은 화를 다시 본 횟수. 총 시청 횟수에서 본 화 종류 수를 뺀 값. */
+const rewatchesOf = (s: ShowSummary) => s.count - s.episodeCount
+
+/** 작품별 집계 — 총 시청 횟수와 그중 재시청이 몇 번인지를 나눠 보여준다. */
 export function ShowTable({ shows }: { shows: ShowSummary[] }) {
-  const [sort, setSort] = useState<{ col: 'count' | 'show' | 'last' | 'days'; dir: Dir }>({ col: 'count', dir: 'desc' })
+  const [sort, setSort] = useState<{ col: 'count' | 'show' | 'last' | 'days' | 'rewatch'; dir: Dir }>({ col: 'count', dir: 'desc' })
   const [limit, setLimit] = useState(20)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
@@ -47,10 +50,13 @@ export function ShowTable({ shows }: { shows: ShowSummary[] }) {
         case 'show': return sign * a.show.localeCompare(b.show, 'ko')
         case 'last': return sign * (a.last.getTime() - b.last.getTime())
         case 'days': return sign * (a.days - b.days)
+        case 'rewatch': return sign * (rewatchesOf(a) - rewatchesOf(b)) || b.count - a.count
         default: return sign * (a.count - b.count) || a.show.localeCompare(b.show, 'ko')
       }
     })
   }, [shows, sort])
+
+  const totalRewatches = useMemo(() => shows.reduce((n, s) => n + rewatchesOf(s), 0), [shows])
 
   const toggle = (show: string) =>
     setExpanded((prev) => {
@@ -64,7 +70,10 @@ export function ShowTable({ shows }: { shows: ShowSummary[] }) {
     <div className="card">
       <div className="section-head">
         <h2>작품별 시청 집계</h2>
-        <span>{shows.length.toLocaleString('ko-KR')}개 작품</span>
+        <span>
+          {shows.length.toLocaleString('ko-KR')}개 작품 ·{' '}
+          {totalRewatches > 0 ? `재시청 ${totalRewatches.toLocaleString('ko-KR')}회` : '재시청 기록 없음'}
+        </span>
       </div>
       <div className="table-wrap">
         <table>
@@ -74,14 +83,14 @@ export function ShowTable({ shows }: { shows: ShowSummary[] }) {
               <SortHeader col="show" label="작품" sort={sort} setSort={setSort} defaultDir="asc" />
               <th scope="col">종류</th>
               <SortHeader col="count" label="총 시청 횟수" sort={sort} setSort={setSort} align="right" />
-              <th scope="col" style={{ textAlign: 'right' }}>본 화</th>
+              <SortHeader col="rewatch" label="재시청" sort={sort} setSort={setSort} align="right" />
               <SortHeader col="days" label="시청일" sort={sort} setSort={setSort} align="right" />
               <SortHeader col="last" label="마지막 시청" sort={sort} setSort={setSort} align="right" />
             </tr>
           </thead>
           <tbody>
             {sorted.slice(0, limit).map((s, i) => {
-              const rewatches = s.count - s.episodeCount
+              const rewatches = rewatchesOf(s)
               const canExpand = s.episodes.length > 1 || rewatches > 0
               const isOpen = expanded.has(s.show)
               return (
@@ -101,15 +110,13 @@ export function ShowTable({ shows }: { shows: ShowSummary[] }) {
                         </button>
                       )}
                       {s.show}
+                      {s.kind === 'series' && <span className="ep"> · {s.episodeCount.toLocaleString('ko-KR')}화</span>}
                       {s.seasons > 1 && <span className="ep"> · 시즌 {s.seasons}개</span>}
                     </td>
                     <td><KindTag kind={s.kind} /></td>
-                    <td className="num">
-                      {s.count.toLocaleString('ko-KR')}회
-                      {rewatches > 0 && <span className="ep"> · 재시청 {rewatches}회</span>}
-                    </td>
-                    <td className="num">
-                      {s.episodeCount.toLocaleString('ko-KR')}{s.kind === 'series' ? '화' : '편'}
+                    <td className="num">{s.count.toLocaleString('ko-KR')}회</td>
+                    <td className={rewatches > 0 ? 'num' : 'num ep'}>
+                      {rewatches > 0 ? `${rewatches.toLocaleString('ko-KR')}회` : '—'}
                     </td>
                     <td className="num">{s.days}일</td>
                     <td className="num">{fmtDate(s.last)}</td>
@@ -117,12 +124,12 @@ export function ShowTable({ shows }: { shows: ShowSummary[] }) {
                   {isOpen && (
                     <tr className="row-detail">
                       <td></td>
-                      <td colSpan={5}>
+                      <td colSpan={6}>
                         <ul className="ep-breakdown">
                           {s.episodes.map((e) => (
-                            <li key={e.label}>
+                            <li key={e.label} className={e.count > 1 ? 'ep-repeat' : undefined}>
                               <span>{e.label}</span>
-                              <span>{e.count}회{e.count > 1 ? ' · 재시청' : ''}</span>
+                              <span>{e.count}회</span>
                             </li>
                           ))}
                         </ul>
