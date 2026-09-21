@@ -5,3 +5,7 @@ dist/
 data/*.csv
 !data/.gitkeep
 
+# 실제 시청 기록은 어느 위치에 두더라도 커밋하지 않는다
+NetflixViewingHistory.*
+*.numbers
+
