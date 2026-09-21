@@ -78,8 +78,13 @@ export function classifyAll(records: ViewRecord[]): Entry[] {
 export type ShowSummary = {
   show: string
   kind: Kind
+  /** 총 시청 횟수 (재시청 포함) */
   count: number
   seasons: number
+  /** 본 화(제목) 종류 수. count와 차이가 나면 그만큼 재시청한 것. */
+  episodeCount: number
+  /** 화별 시청 횟수, 많이 본 순 */
+  episodes: { label: string; count: number }[]
   first: Date
   last: Date
   days: number
@@ -153,7 +158,10 @@ export function computeStats(entries: Entry[], today = new Date()): Stats | null
 
   const perDay = new Map<string, DayCount>()
   const byWeekday = new Array(7).fill(0) as number[]
-  const showMap = new Map<string, { kind: Kind; count: number; seasons: Set<string>; days: Set<string>; first: number; last: number }>()
+  const showMap = new Map<
+    string,
+    { kind: Kind; count: number; seasons: Set<string>; days: Set<string>; episodes: Map<string, number>; first: number; last: number }
+  >()
 
   for (const e of entries) {
     const dk = dayKey(e.date)
@@ -169,6 +177,7 @@ export function computeStats(entries: Entry[], today = new Date()): Stats | null
       count: 0,
       seasons: new Set<string>(),
       days: new Set<string>(),
+      episodes: new Map<string, number>(),
       first: e.date.getTime(),
       last: e.date.getTime(),
     }
@@ -178,6 +187,8 @@ export function computeStats(entries: Entry[], today = new Date()): Stats | null
     if (e.kind === 'series') s.kind = 'series'
     s.first = Math.min(s.first, e.date.getTime())
     s.last = Math.max(s.last, e.date.getTime())
+    const epLabel = [e.season, e.episode].filter(Boolean).join(' · ') || e.title
+    s.episodes.set(epLabel, (s.episodes.get(epLabel) ?? 0) + 1)
     showMap.set(e.show, s)
   }
 
@@ -187,6 +198,10 @@ export function computeStats(entries: Entry[], today = new Date()): Stats | null
       kind: s.kind,
       count: s.count,
       seasons: s.seasons.size,
+      episodeCount: s.episodes.size,
+      episodes: [...s.episodes.entries()]
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'ko')),
       first: new Date(s.first),
       last: new Date(s.last),
       days: s.days.size,

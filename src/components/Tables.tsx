@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { fmtDate, type Entry, type ShowSummary } from '../lib/stats'
 
 type Dir = 'asc' | 'desc'
@@ -34,10 +34,11 @@ const KindTag = ({ kind }: { kind: 'series' | 'movie' }) => (
   <span className={`tag tag-${kind}`}>{kind === 'series' ? '시리즈' : '영화'}</span>
 )
 
-/** 작품별 집계 — 시리즈는 본 에피소드 수가 곧 시청 건수. */
+/** 작품별 집계 — 총 시청 횟수(재시청 포함)와 실제로 본 화 수를 나눠 보여준다. */
 export function ShowTable({ shows }: { shows: ShowSummary[] }) {
   const [sort, setSort] = useState<{ col: 'count' | 'show' | 'last' | 'days'; dir: Dir }>({ col: 'count', dir: 'desc' })
   const [limit, setLimit] = useState(20)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const sorted = useMemo(() => {
     const sign = sort.dir === 'asc' ? 1 : -1
@@ -50,6 +51,14 @@ export function ShowTable({ shows }: { shows: ShowSummary[] }) {
       }
     })
   }, [shows, sort])
+
+  const toggle = (show: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(show)) next.delete(show)
+      else next.add(show)
+      return next
+    })
 
   return (
     <div className="card">
@@ -64,25 +73,65 @@ export function ShowTable({ shows }: { shows: ShowSummary[] }) {
               <th scope="col"><span className="visually-hidden">순위</span></th>
               <SortHeader col="show" label="작품" sort={sort} setSort={setSort} defaultDir="asc" />
               <th scope="col">종류</th>
-              <SortHeader col="count" label="시청 건수" sort={sort} setSort={setSort} align="right" />
+              <SortHeader col="count" label="총 시청 횟수" sort={sort} setSort={setSort} align="right" />
+              <th scope="col" style={{ textAlign: 'right' }}>본 화</th>
               <SortHeader col="days" label="시청일" sort={sort} setSort={setSort} align="right" />
               <SortHeader col="last" label="마지막 시청" sort={sort} setSort={setSort} align="right" />
             </tr>
           </thead>
           <tbody>
-            {sorted.slice(0, limit).map((s, i) => (
-              <tr key={s.show}>
-                <td className="rank">{i + 1}</td>
-                <td className="title">
-                  {s.show}
-                  {s.seasons > 1 && <span className="ep"> · 시즌 {s.seasons}개</span>}
-                </td>
-                <td><KindTag kind={s.kind} /></td>
-                <td className="num">{s.count.toLocaleString('ko-KR')}{s.kind === 'series' ? '화' : '회'}</td>
-                <td className="num">{s.days}일</td>
-                <td className="num">{fmtDate(s.last)}</td>
-              </tr>
-            ))}
+            {sorted.slice(0, limit).map((s, i) => {
+              const rewatches = s.count - s.episodeCount
+              const canExpand = s.episodes.length > 1 || rewatches > 0
+              const isOpen = expanded.has(s.show)
+              return (
+                <Fragment key={s.show}>
+                  <tr>
+                    <td className="rank">{i + 1}</td>
+                    <td className="title">
+                      {canExpand && (
+                        <button
+                          type="button"
+                          className="row-toggle"
+                          aria-expanded={isOpen}
+                          aria-label={`${s.show} 화별 시청 횟수 ${isOpen ? '접기' : '펼치기'}`}
+                          onClick={() => toggle(s.show)}
+                        >
+                          <span aria-hidden="true">{isOpen ? '▾' : '▸'}</span>
+                        </button>
+                      )}
+                      {s.show}
+                      {s.seasons > 1 && <span className="ep"> · 시즌 {s.seasons}개</span>}
+                    </td>
+                    <td><KindTag kind={s.kind} /></td>
+                    <td className="num">
+                      {s.count.toLocaleString('ko-KR')}회
+                      {rewatches > 0 && <span className="ep"> · 재시청 {rewatches}회</span>}
+                    </td>
+                    <td className="num">
+                      {s.episodeCount.toLocaleString('ko-KR')}{s.kind === 'series' ? '화' : '편'}
+                    </td>
+                    <td className="num">{s.days}일</td>
+                    <td className="num">{fmtDate(s.last)}</td>
+                  </tr>
+                  {isOpen && (
+                    <tr className="row-detail">
+                      <td></td>
+                      <td colSpan={5}>
+                        <ul className="ep-breakdown">
+                          {s.episodes.map((e) => (
+                            <li key={e.label}>
+                              <span>{e.label}</span>
+                              <span>{e.count}회{e.count > 1 ? ' · 재시청' : ''}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
           </tbody>
         </table>
       </div>
