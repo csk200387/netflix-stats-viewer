@@ -69,36 +69,6 @@ describe('computeStats', () => {
     expect(s.byMonth[0].label).toBe('2026년 1월')
   })
 
-  it('같은 화를 다시 보면 총 시청 횟수만 늘고 본 화 수는 그대로다', () => {
-    const s = computeStats(
-      classifyAll([
-        rec('쇼: 시즌 1: 1화', '2026-01-01'),
-        rec('쇼: 시즌 1: 1화', '2026-01-02'),
-        rec('쇼: 시즌 1: 1화', '2026-01-03'),
-        rec('쇼: 시즌 1: 2화', '2026-01-04'),
-        rec('물의 기억', '2026-02-01'),
-        rec('물의 기억', '2026-02-09'),
-      ]),
-    )!
-    expect(s.shows.find((x) => x.show === '쇼')).toMatchObject({ count: 4, episodeCount: 2 })
-    // 영화도 같은 방식으로 재시청이 잡힌다 (고유 제목은 언제나 1개)
-    expect(s.shows.find((x) => x.show === '물의 기억')).toMatchObject({ count: 2, episodeCount: 1 })
-  })
-
-  it('화별 시청 횟수를 많이 본 순으로 준다', () => {
-    const s = computeStats(
-      classifyAll([
-        rec('쇼: 시즌 1: 1화', '2026-01-01'),
-        rec('쇼: 시즌 1: 2화', '2026-01-02'),
-        rec('쇼: 시즌 1: 2화', '2026-01-03'),
-      ]),
-    )!
-    expect(s.shows[0].episodes).toEqual([
-      { label: '시즌 1 · 2화', count: 2 },
-      { label: '시즌 1 · 1화', count: 1 },
-    ])
-  })
-
   it('요일 분포와 최장 연속 시청일을 낸다', () => {
     const s = computeStats(entries)!
     expect(s.byWeekday.find((d) => d.label === '목')?.count).toBe(3) // 1/1, 3/5

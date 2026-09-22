@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { fmtDate, type Entry, type ShowSummary } from '../lib/stats'
 
 type Dir = 'asc' | 'desc'
@@ -34,14 +34,10 @@ const KindTag = ({ kind }: { kind: 'series' | 'movie' }) => (
   <span className={`tag tag-${kind}`}>{kind === 'series' ? '시리즈' : '영화'}</span>
 )
 
-/** 같은 화를 다시 본 횟수. 총 시청 횟수에서 본 화 종류 수를 뺀 값. */
-const rewatchesOf = (s: ShowSummary) => s.count - s.episodeCount
-
-/** 작품별 집계 — 총 시청 횟수와 그중 재시청이 몇 번인지를 나눠 보여준다. */
+/** 작품별 집계 — 시리즈는 본 에피소드 수가 곧 시청 건수. */
 export function ShowTable({ shows }: { shows: ShowSummary[] }) {
-  const [sort, setSort] = useState<{ col: 'count' | 'show' | 'last' | 'days' | 'rewatch'; dir: Dir }>({ col: 'count', dir: 'desc' })
+  const [sort, setSort] = useState<{ col: 'count' | 'show' | 'last' | 'days'; dir: Dir }>({ col: 'count', dir: 'desc' })
   const [limit, setLimit] = useState(20)
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const sorted = useMemo(() => {
     const sign = sort.dir === 'asc' ? 1 : -1
@@ -50,30 +46,16 @@ export function ShowTable({ shows }: { shows: ShowSummary[] }) {
         case 'show': return sign * a.show.localeCompare(b.show, 'ko')
         case 'last': return sign * (a.last.getTime() - b.last.getTime())
         case 'days': return sign * (a.days - b.days)
-        case 'rewatch': return sign * (rewatchesOf(a) - rewatchesOf(b)) || b.count - a.count
         default: return sign * (a.count - b.count) || a.show.localeCompare(b.show, 'ko')
       }
     })
   }, [shows, sort])
 
-  const totalRewatches = useMemo(() => shows.reduce((n, s) => n + rewatchesOf(s), 0), [shows])
-
-  const toggle = (show: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(show)) next.delete(show)
-      else next.add(show)
-      return next
-    })
-
   return (
     <div className="card">
       <div className="section-head">
         <h2>작품별 시청 집계</h2>
-        <span>
-          {shows.length.toLocaleString('ko-KR')}개 작품 ·{' '}
-          {totalRewatches > 0 ? `재시청 ${totalRewatches.toLocaleString('ko-KR')}회` : '재시청 기록 없음'}
-        </span>
+        <span>{shows.length.toLocaleString('ko-KR')}개 작품</span>
       </div>
       <div className="table-wrap">
         <table>
@@ -82,63 +64,25 @@ export function ShowTable({ shows }: { shows: ShowSummary[] }) {
               <th scope="col"><span className="visually-hidden">순위</span></th>
               <SortHeader col="show" label="작품" sort={sort} setSort={setSort} defaultDir="asc" />
               <th scope="col">종류</th>
-              <SortHeader col="count" label="총 시청 횟수" sort={sort} setSort={setSort} align="right" />
-              <SortHeader col="rewatch" label="재시청" sort={sort} setSort={setSort} align="right" />
+              <SortHeader col="count" label="시청 건수" sort={sort} setSort={setSort} align="right" />
               <SortHeader col="days" label="시청일" sort={sort} setSort={setSort} align="right" />
               <SortHeader col="last" label="마지막 시청" sort={sort} setSort={setSort} align="right" />
             </tr>
           </thead>
           <tbody>
-            {sorted.slice(0, limit).map((s, i) => {
-              const rewatches = rewatchesOf(s)
-              const canExpand = s.episodes.length > 1 || rewatches > 0
-              const isOpen = expanded.has(s.show)
-              return (
-                <Fragment key={s.show}>
-                  <tr>
-                    <td className="rank">{i + 1}</td>
-                    <td className="title">
-                      {canExpand && (
-                        <button
-                          type="button"
-                          className="row-toggle"
-                          aria-expanded={isOpen}
-                          aria-label={`${s.show} 화별 시청 횟수 ${isOpen ? '접기' : '펼치기'}`}
-                          onClick={() => toggle(s.show)}
-                        >
-                          <span aria-hidden="true">{isOpen ? '▾' : '▸'}</span>
-                        </button>
-                      )}
-                      {s.show}
-                      {s.kind === 'series' && <span className="ep"> · {s.episodeCount.toLocaleString('ko-KR')}화</span>}
-                      {s.seasons > 1 && <span className="ep"> · 시즌 {s.seasons}개</span>}
-                    </td>
-                    <td><KindTag kind={s.kind} /></td>
-                    <td className="num">{s.count.toLocaleString('ko-KR')}회</td>
-                    <td className={rewatches > 0 ? 'num' : 'num ep'}>
-                      {rewatches > 0 ? `${rewatches.toLocaleString('ko-KR')}회` : '—'}
-                    </td>
-                    <td className="num">{s.days}일</td>
-                    <td className="num">{fmtDate(s.last)}</td>
-                  </tr>
-                  {isOpen && (
-                    <tr className="row-detail">
-                      <td></td>
-                      <td colSpan={6}>
-                        <ul className="ep-breakdown">
-                          {s.episodes.map((e) => (
-                            <li key={e.label} className={e.count > 1 ? 'ep-repeat' : undefined}>
-                              <span>{e.label}</span>
-                              <span>{e.count}회</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              )
-            })}
+            {sorted.slice(0, limit).map((s, i) => (
+              <tr key={s.show}>
+                <td className="rank">{i + 1}</td>
+                <td className="title">
+                  {s.show}
+                  {s.seasons > 1 && <span className="ep"> · 시즌 {s.seasons}개</span>}
+                </td>
+                <td><KindTag kind={s.kind} /></td>
+                <td className="num">{s.count.toLocaleString('ko-KR')}{s.kind === 'series' ? '화' : '회'}</td>
+                <td className="num">{s.days}일</td>
+                <td className="num">{fmtDate(s.last)}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
