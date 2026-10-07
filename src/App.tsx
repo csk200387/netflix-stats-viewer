@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import FileDrop from './components/FileDrop'
 import { MonthlyChart, StreakCalendar, TimelineChart, WeekdayChart } from './components/Charts'
 import RecapModal from './components/Recap'
@@ -23,6 +23,10 @@ export default function App() {
   const [to, setTo] = useState('')
   const [kind, setKind] = useState<KindFilter>('all')
   const [recapOpen, setRecapOpen] = useState(false)
+
+  useEffect(() => {
+    if (loaded) window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [loaded])
 
   const load = useCallback(async (fileName: string, read: () => Promise<string>) => {
     setBusy(true)
