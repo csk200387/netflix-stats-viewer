@@ -126,7 +126,6 @@ export default function App() {
           <span className="brand-mark" aria-hidden="true">N</span>
           <span className="brand-name">WATCHED</span>
         </div>
-        <p className="header-privacy"><span aria-hidden="true" />100% PRIVATE · IN YOUR BROWSER</p>
         {loaded && (
           <div className="header-actions">
             <button type="button" className="btn" onClick={() => setFilter(EMPTY_FILTER)} disabled={!filterOn}>
@@ -285,7 +284,7 @@ export default function App() {
 
       <footer className="footer">
         <p>
-          모든 분석은 브라우저에서만 수행됩니다. 파일은 어디에도 업로드되지 않고, 새로고침하면 사라집니다.
+          장르를 알기 위해 작품 제목만 TMDB로 보내 조회합니다. 파일과 시청 날짜는 보내지 않습니다. This product uses the TMDB API but is not endorsed or certified by TMDB.
         </p>
         <p>
           시리즈·영화 구분은 제목 표기를 기준으로 한 추정값입니다. 같은 화를 다시 봐도 넷플릭스 기록은

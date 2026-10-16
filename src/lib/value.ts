@@ -48,6 +48,8 @@ export type ValueSettings = {
   to: string
   rates: Rates
   shows: Record<string, ShowValue>
+  /** 외부 조회(TMDB)로 추정한 작품별 유형. 사용자 지정(shows)이 우선한다 */
+  guesses: Record<string, CategoryId>
   excludedCycles: string[]
   adsEnabled: boolean
   kidsProfile: boolean
@@ -84,7 +86,7 @@ export function initialValueSettings(entries: Entry[], today = new Date()): Valu
   return {
     monthlyPrice: 7000, extraFee: 0, otherPeople: 0, costMode: 'split', personalPrice: 7000,
     billingDay: 1, from: dateKey(new Date(first.getFullYear(), first.getMonth(), 1)),
-    to: dateKey(monthEnd < today ? monthEnd : today), rates: { ...DEFAULT_RATES }, shows: {}, excludedCycles: [],
+    to: dateKey(monthEnd < today ? monthEnd : today), rates: { ...DEFAULT_RATES }, shows: {}, guesses: {}, excludedCycles: [],
     adsEnabled: false, kidsProfile: false, adCount: 2, adSeconds: 15, hourlyValue: 10000,
     adFreeEntries: 0,
   }
@@ -94,9 +96,10 @@ export const showOverride = (settings: ValueSettings, name: string) => Object.ha
 
 export function resolveShow(entry: Entry, settings: ValueSettings) {
   const override = showOverride(settings, entry.show)
-  const category = override?.category ?? (entry.kind === 'series' ? 'series' : 'movie')
+  const guess = Object.hasOwn(settings.guesses, entry.show) ? settings.guesses[entry.show] : undefined
+  const category = override?.category ?? guess ?? (entry.kind === 'series' ? 'series' : 'movie')
   return { category, price: override?.price ?? settings.rates[category], adCount: override?.adCount ?? settings.adCount,
-    estimated: override === undefined, typeRate: override?.price === undefined, unpriced: category === 'custom' && override?.price === undefined }
+    estimated: override === undefined, guessed: override === undefined && guess !== undefined, typeRate: override?.price === undefined, unpriced: category === 'custom' && override?.price === undefined }
 }
 
 export type ValuedWatch = { entry: Entry; category: CategoryId; price: number; adMinutes: number }
@@ -218,8 +221,8 @@ export const applyPlan = (settings: ValueSettings, plan: PlanId): ValueSettings 
 })
 
 /** 앞으로 한 편 더 볼 때 기본값으로 가정하는 광고 시간 비용 */
-export const adCostPerWatch = (settings: ValueSettings) =>
-  settings.adsEnabled && !settings.kidsProfile ? settings.adCount * settings.adSeconds / 3600 * settings.hourlyValue : 0
+export const adCostPerWatch = (settings: ValueSettings, adCount = settings.adCount) =>
+  settings.adsEnabled && !settings.kidsProfile ? adCount * settings.adSeconds / 3600 * settings.hourlyValue : 0
 
 /** 한 달 요금을 한 유형의 단가로만 채우려면 몇 편이 필요한가 (단가 0원이면 null) */
 export const watchesForPrice = (price: number, rate: number) => (rate > 0 ? Math.ceil(Math.max(0, price) / rate) : null)
@@ -231,8 +234,48 @@ export const watchesForPrice = (price: number, rate: number) => (rate > 0 ? Math
 export function watchesToBreakEven(cycle: ValueCycle, settings: ValueSettings, category: CategoryId) {
   const remaining = Math.max(0, cycle.cost - cycle.net)
   const perWatch = settings.rates[category] - adCostPerWatch(settings)
-  const count = remaining <= EPSILON ? 0 : perWatch > 0 ? Math.ceil((remaining - EPSILON) / perWatch) : null
-  return { remaining, perWatch, count }
+  return { remaining, perWatch, count: neededWatches(remaining, perWatch) }
+}
+
+/** 남은 금액을 한 편당 순가치로 채우려면 몇 편이 필요한가 (순가치 0 이하면 null) */
+const neededWatches = (remaining: number, perWatch: number) =>
+  remaining <= EPSILON ? 0 : perWatch > 0 ? Math.ceil((remaining - EPSILON) / perWatch) : null
+
+export type ShowContribution = {
+  show: string; kind: Entry['kind']; count: number; net: number; last: number
+  /** 앞으로 한 편 더 볼 때의 순가치 (작품 단가 − 기본 광고 가정) */
+  perWatch: number
+}
+/** 결제 주기 안에서 작품별로 몇 편을 봐서 얼마를 채웠는지. 환산액이 큰 순 */
+export function cycleShows(cycle: ValueCycle, settings: ValueSettings): ShowContribution[] {
+  const rows = new Map<string, ShowContribution>()
+  for (const day of cycle.days) {
+    for (const w of day.watches) {
+      let row = rows.get(w.entry.show)
+      if (!row) {
+        const value = resolveShow(w.entry, settings)
+        row = { show: w.entry.show, kind: w.entry.kind, count: 0, net: 0, last: 0,
+          perWatch: value.price - adCostPerWatch(settings, value.adCount) }
+        rows.set(w.entry.show, row)
+      }
+      row.count++
+      row.net += w.price - w.adMinutes * settings.hourlyValue / 60
+      row.last = day.date.getTime()
+    }
+  }
+  return [...rows.values()].sort((a, b) => b.net - a.net || b.count - a.count)
+}
+
+/**
+ * 못 채운 금액을 그 달에 보던 시리즈를 이어 봐서 채운다면 몇 화가 더 필요한가.
+ * 많이·최근에 본 시리즈 순이며, 남은 회차가 실제로 있는지는 알 수 없다.
+ */
+export function catchUpSeries(shows: ShowContribution[], remaining: number, limit = 3) {
+  return shows
+    .filter((s) => s.kind === 'series' && s.perWatch > 0)
+    .sort((a, b) => b.count - a.count || b.last - a.last)
+    .slice(0, limit)
+    .map((s) => ({ ...s, needed: neededWatches(remaining, s.perWatch)! }))
 }
 
 export type CycleStatus = 'excluded' | 'free' | 'reached' | 'pending' | 'short'

@@ -42,13 +42,14 @@ export default function ContentRates({ entries, settings, onRate, onShow, onRese
   return (
     <div className="card value-block" id="value-content">
       <header className="value-block-head">
-        <span className="value-step">STEP 2</span>
+        <span className="value-step">ADJUST 2</span>
         <h3>콘텐츠마다 다른 단가</h3>
         <p>드라마 한 회와 애니 한 화의 가치는 다르니까</p>
       </header>
       <p className="value-help">
-        장르는 CSV만으로 알 수 없습니다. 시리즈는 ‘유형 미지정’ {won(settings.rates.series)}, 영화는 {won(settings.rates.movie)}으로
-        우선 추정합니다. 많이 본 작품부터 유형을 확인해 주세요. 독점작·기타는 단가를 직접 입력하거나 ‘미확인 · 계산 제외’를 고르세요.
+        CSV에는 장르가 없어 작품 제목으로 TMDB에서 장르를 찾아 유형을 정합니다. 찾지 못한 시리즈는 ‘유형 미지정’{' '}
+        {won(settings.rates.series)}, 한 편짜리 제목은 {won(settings.rates.movie)}(영화)으로 우선 추정합니다. 검색 첫 결과로 정하므로 제목이 비슷한
+        다른 작품과 섞일 수 있습니다. 많이 본 작품부터 유형을 확인해 주세요. 독점작·기타는 단가를 직접 입력하거나 ‘미확인 · 계산 제외’를 고르세요.
       </p>
 
       <details className="value-details">
@@ -116,7 +117,7 @@ export default function ContentRates({ entries, settings, onRate, onShow, onRese
                 <tr key={entry.show}>
                   <td className="title">
                     {entry.show}
-                    <small className="value-row-note">{num(count)}건 · {value.estimated ? '기본 추정' : '사용자 지정'}</small>
+                    <small className="value-row-note">{num(count)}건 · {value.guessed ? 'TMDB 추정' : value.estimated ? '기본 추정' : '사용자 지정'}</small>
                   </td>
                   <td>
                     <label className="visually-hidden" htmlFor={`value-category-${i}`}>{entry.show} 콘텐츠 유형</label>

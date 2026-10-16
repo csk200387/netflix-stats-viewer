@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { classifyAll } from './stats'
-import { computeValue, cycleStart, dateKey, initialValueSettings, nextCycle, parseDate, type ValueSettings } from './value'
+import { catchUpSeries, computeValue, cycleShows, cycleStart, dateKey, initialValueSettings, nextCycle, parseDate, type ValueSettings } from './value'
 
 const today = new Date(2026, 9, 15)
 const entriesOf = (...pairs: [string, string][]) => classifyAll(pairs.map(([title, date]) => ({ title, date: parseDate(date), rawDate: date })))
@@ -94,6 +94,21 @@ describe('본전 · 콘텐츠와 날짜별 결과', () => {
     expect(cycle.firstReached).toBe('2026-01-04')
     expect(cycle.days).toHaveLength(31)
     expect(cycle.reached).toBe(true)
+  })
+
+  it('그 달 작품별 기여를 모으고 못 채운 금액을 보던 시리즈로 채울 회차를 계산한다', () => {
+    const entries = entriesOf(['드라마: 시즌 1: 1화', '2026-01-01'], ['드라마: 시즌 1: 2화', '2026-01-02'], ['영화', '2026-01-03'])
+    const settings = settingsOf({ shows: { 드라마: { category: 'drama' } } })
+    const cycle = computeValue(entries, settings, today).cycles[0]
+    const shows = cycleShows(cycle, settings)
+    expect(shows.map((s) => [s.show, s.count, s.net])).toEqual([['드라마', 2, 3300], ['영화', 1, 1500]])
+    expect(catchUpSeries(shows, cycle.cost - cycle.net)).toMatchObject([{ show: '드라마', needed: 2 }])
+  })
+
+  it('TMDB 추정 유형을 기본값보다 먼저, 사용자 지정보다 나중에 적용한다', () => {
+    const entries = entriesOf(['애니: 시즌 1: 1화', '2026-01-01'])
+    expect(computeValue(entries, settingsOf({ guesses: { 애니: 'anime' } }), today).gross).toBe(700)
+    expect(computeValue(entries, settingsOf({ guesses: { 애니: 'anime' }, shows: { 애니: { category: 'drama' } } }), today).gross).toBe(1650)
   })
 
   it('분석 범위 밖의 시청량은 본전에 기여하지 않는다', () => {

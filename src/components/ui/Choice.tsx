@@ -12,7 +12,8 @@ export const MAX_CHOICE_BUTTONS = 6
 type Props<T extends string> = {
   id: string
   label: string
-  value: T
+  /** null이면 아직 아무것도 고르지 않은 상태 (버튼 묶음 전용) */
+  value: T | null
   options: readonly ChoiceOption<T>[]
   onChange: (value: T) => void
   maxButtons?: number
@@ -33,7 +34,7 @@ export default function Choice<T extends string>({
     return (
       <div className={`field ${className}`}>
         <label htmlFor={id} className={labelClass}>{label}</label>
-        <select id={id} value={value} onChange={(e) => onChange(e.target.value as T)}>
+        <select id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value as T)}>
           {options.map((o) => (
             <option key={o.value} value={o.value} disabled={o.disabled}>
               {o.hint ? `${o.label} · ${o.hint}` : o.label}

@@ -24,9 +24,9 @@ export default function CycleBoard({ cycles, selectedKey, onSelect }: Props) {
   return (
     <div className="card value-block">
       <header className="value-block-head">
-        <span className="value-step">RESULT 2</span>
+        <span className="value-step">RESULT 1</span>
         <h3>본전 뽑은 달, 못 뽑은 달</h3>
-        <p>달을 누르면 위에서 그 달의 자세한 결과를 볼 수 있어요. 구독 제외·부담 0원인 주기는 빼고 모았습니다.</p>
+        <p>달을 누르면 아래에서 그 달의 자세한 결과를 볼 수 있어요. 구독 제외·부담 0원인 주기는 빼고 모았습니다.</p>
       </header>
 
       <Choice

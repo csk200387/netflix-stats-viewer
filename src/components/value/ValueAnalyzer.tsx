@@ -1,12 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Entry } from '../../lib/stats'
-import { percent, signedWon, won } from '../../lib/format'
+import { num, percent, signedWon, won } from '../../lib/format'
+import { TMDB_TOKEN, lookupTitles } from '../../lib/tmdb'
 import {
-  applyPlan, computeValue, initialValueSettings, showOverride, summarizeValue,
+  adsAllowed, applyPlan, computeValue, initialValueSettings, showOverride, summarizeValue,
   type CategoryId, type PlanId, type ShowValue, type ValueReport, type ValueSettings, type ValueSummary,
 } from '../../lib/value'
 import ContentRates from './ContentRates'
-import CostSettings from './CostSettings'
+import CostSettings, { QuickCost } from './CostSettings'
 import CycleBoard from './CycleBoard'
 import CycleVerdict from './CycleVerdict'
 
@@ -16,7 +17,16 @@ const ANSWER: Record<ValueSummary['verdict'], string> = {
   free: '낸 돈이 없어요',
 }
 
-function Answer({ summary, error }: { summary: ValueSummary | null; error: string | null }) {
+function Answer({ summary, error, asked }: { summary: ValueSummary | null; error: string | null; asked: boolean }) {
+  if (!asked) {
+    return (
+      <div className="value-answer" aria-live="polite">
+        <span>지금까지의 답</span>
+        <strong>요금제를<br />골라 주세요</strong>
+        <p><small>고르는 즉시 기록 전체로 계산해요.</small></p>
+      </div>
+    )
+  }
   if (!summary) {
     return (
       <div className="value-answer is-error" aria-live="polite">
@@ -48,6 +58,18 @@ function Answer({ summary, error }: { summary: ValueSummary | null; error: strin
   )
 }
 
+type Lookup = { total: number; done: number; found: number | null; error: string | null }
+
+/** 작품 제목을 TMDB에서 조회한 진행 상황 */
+function LookupStatus({ lookup }: { lookup: Lookup }) {
+  const text = lookup.error
+    ? `TMDB 장르 조회에 실패해 기본 유형으로 계산했어요 (${lookup.error})`
+    : lookup.found === null
+      ? `TMDB에서 작품 장르 확인 중… ${num(lookup.done)} / ${num(lookup.total)}`
+      : `TMDB에서 작품 ${num(lookup.total)}개 중 ${num(lookup.found)}개의 장르를 찾아 단가에 반영했어요`
+  return <p className="value-lookup" aria-live="polite">{text}</p>
+}
+
 function Metrics({ report, summary }: { report: ValueReport; summary: ValueSummary }) {
   return (
     <div className="value-summary" aria-live="polite">
@@ -73,8 +95,26 @@ function Metrics({ report, summary }: { report: ValueReport; summary: ValueSumma
 /** 본전 계산기. 불러온 전체 기록으로 계산하며 통계 화면의 검색·기간 필터와 독립적이다. */
 export default function ValueAnalyzer({ entries }: { entries: Entry[] }) {
   const [settings, setSettings] = useState(() => initialValueSettings(entries))
-  const [plan, setPlan] = useState<PlanId>('ads')
+  const [plan, setPlan] = useState<PlanId | null>(null)
   const [cycleKey, setCycleKey] = useState('')
+
+  const [lookup, setLookup] = useState<Lookup | null>(null)
+
+  useEffect(() => {
+    const titles = [...new Map(entries.map((e) => [e.show, { show: e.show, kind: e.kind }])).values()]
+    if (!TMDB_TOKEN || titles.length === 0) return
+    const controller = new AbortController()
+    setLookup({ total: titles.length, done: 0, found: null, error: null })
+    lookupTitles(titles, TMDB_TOKEN, (done) => setLookup((old) => old && { ...old, done }), controller.signal)
+      .then((guesses) => {
+        setSettings((old) => ({ ...old, guesses }))
+        setLookup({ total: titles.length, done: titles.length, found: Object.keys(guesses).length, error: null })
+      })
+      .catch((e: unknown) => {
+        if (!controller.signal.aborted) setLookup((old) => old && { ...old, error: e instanceof Error ? e.message : '네트워크 오류' })
+      })
+    return () => controller.abort()
+  }, [entries])
 
   const update = <K extends keyof ValueSettings>(key: K, value: ValueSettings[K]) =>
     setSettings((old) => ({ ...old, [key]: value }))
@@ -115,49 +155,62 @@ export default function ValueAnalyzer({ entries }: { entries: Entry[] }) {
           <p className="value-kicker">YOUR NETFLIX, YOUR MONEY</p>
           <h2 id="value-title">당신은 넷플릭스로<br /><em>본전을 뽑으셨나요?</em></h2>
           <p className="value-description">
-            드라마 한 회와 애니 한 화의 가치는 다르니까. 콘텐츠별 비교 단가와 내가 낸 구독료로 시청의 가치를 계산해 보세요.
+            요금제와 나눠 내는 인원만 고르면, 지금까지 본 작품을 따로 빌려 봤을 때의 값과 비교해 드려요.
           </p>
-          <p className="value-intro-note">
-            <span>단건 구매 대비 환산 추정</span>
-            불러온 전체 기록으로 계산하며 위쪽 검색·기간·종류 필터와는 독립적입니다.
-          </p>
+          <QuickCost
+            settings={settings}
+            plan={plan}
+            onPlan={(next) => {
+              setPlan(next)
+              setSettings((old) => applyPlan(old, next))
+            }}
+            update={update}
+            costPerCycle={report?.costPerCycle ?? null}
+          />
+          {lookup && <LookupStatus lookup={lookup} />}
         </div>
-        <Answer summary={summary} error={error} />
+        <Answer summary={summary} error={error} asked={plan !== null} />
       </div>
 
-      <CostSettings
-        settings={settings}
-        plan={plan}
-        onPlan={(next) => {
-          setPlan(next)
-          setSettings((old) => applyPlan(old, next))
-        }}
-        update={update}
-        costPerCycle={report?.costPerCycle ?? null}
-      />
+      {plan && error && <div className="alert alert-error" role="alert">{error}</div>}
 
-      <ContentRates
-        entries={entries}
-        settings={settings}
-        onRate={(category, price) => setSettings((old) => ({ ...old, rates: { ...old.rates, [category]: price } }))}
-        onShow={updateShow}
-        onResetShow={resetShow}
-      />
-
-      {error && <div className="alert alert-error" role="alert">{error}</div>}
-
-      {report && summary && cycle && (
+      {plan && report && summary && cycle && (
         <>
-          <Metrics report={report} summary={summary} />
-          <CycleVerdict report={report} cycle={cycle} settings={settings} onSelectCycle={setCycleKey} onToggleCycle={toggleCycle} />
           <CycleBoard cycles={cycles} selectedKey={cycle.key} onSelect={setCycleKey} />
-          <p className="value-footnote">
-            기본 유형 추정 {report.estimatedCount}건 · 미확인으로 제외 {report.excludedCount}건 · 같은 날짜·제목의 중복행 제외{' '}
-            {report.duplicateCount}건 · 선택 기간·구독 제외 주기 밖 {report.outsideCount}건. 시청시간·완주 여부는 확인할 수 없으며 기록
-            한 건을 한 편으로 가정합니다. 재시청은 날짜가 다르면 별도 건으로 계산합니다. 동일 작품 구매를 대체하지 않는 값은 실제
-            절약액이 아닌 환산 추정치입니다.
-          </p>
+          <CycleVerdict report={report} cycle={cycle} settings={settings} onSelectCycle={setCycleKey} onToggleCycle={toggleCycle} />
+          <Metrics report={report} summary={summary} />
         </>
+      )}
+
+      {plan && (
+        <>
+          <header className="value-adjust-head" id="value-settings">
+            <p className="value-kicker">ADJUST</p>
+            <h3>결과가 내 상황과 다르다면</h3>
+            <p>
+              불러온 전체 기록으로 계산하며 위쪽 검색·기간·종류 필터와는 독립적이에요. 아래 값을 바꾸면 위 결과가 바로 다시 계산돼요.
+            </p>
+          </header>
+
+          <CostSettings settings={settings} adsPossible={adsAllowed(plan)} update={update} />
+
+          <ContentRates
+            entries={entries}
+            settings={settings}
+            onRate={(category, price) => setSettings((old) => ({ ...old, rates: { ...old.rates, [category]: price } }))}
+            onShow={updateShow}
+            onResetShow={resetShow}
+          />
+        </>
+      )}
+
+      {plan && report && (
+        <p className="value-footnote">
+          기본 유형 추정 {report.estimatedCount}건 · 미확인으로 제외 {report.excludedCount}건 · 같은 날짜·제목의 중복행 제외{' '}
+          {report.duplicateCount}건 · 선택 기간·구독 제외 주기 밖 {report.outsideCount}건. 시청시간·완주 여부는 확인할 수 없으며 기록
+          한 건을 한 편으로 가정합니다. 재시청은 날짜가 다르면 별도 건으로 계산합니다. 동일 작품 구매를 대체하지 않는 값은 실제
+          절약액이 아닌 환산 추정치입니다.
+        </p>
       )}
     </div>
   )

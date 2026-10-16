@@ -1,19 +1,20 @@
 import { useState } from 'react'
 import { fmtDate } from '../../lib/stats'
 import { won } from '../../lib/format'
-import { PLANS, adsAllowed, dateKey, parseDate, type PlanId, type ValueSettings } from '../../lib/value'
+import { PLANS, dateKey, parseDate, type PlanId, type ValueSettings } from '../../lib/value'
 import Choice from '../ui/Choice'
 import NumberField from '../ui/NumberField'
 
 type Update = <K extends keyof ValueSettings>(key: K, value: ValueSettings[K]) => void
 
-type Props = {
+type QuickProps = {
   settings: ValueSettings
-  plan: PlanId
+  plan: PlanId | null
   onPlan: (plan: PlanId) => void
   update: Update
   costPerCycle: number | null
 }
+type Props = { settings: ValueSettings; adsPossible: boolean; update: Update }
 
 const SHARE_PRESETS = ['0', '1', '2', '3', '4'] as const
 const SHARE_MORE = 'more'
@@ -26,7 +27,7 @@ function ShareField({ value, onChange }: { value: number; onChange: (value: numb
     <div className="share-field">
       <Choice
         id="value-people"
-        label="함께 분담하는 가족·친구 (본인 제외)"
+        label="② 몇 명이 나눠 내세요? (본인 제외)"
         value={selected}
         options={[...SHARE_PRESETS.map((n) => ({ value: n, label: `${n}명` })), { value: SHARE_MORE, label: '5명+' }]}
         onChange={(next) => {
@@ -46,8 +47,40 @@ function ShareField({ value, onChange }: { value: number; onChange: (value: numb
   )
 }
 
-export default function CostSettings({ settings, plan, onPlan, update, costPerCycle }: Props) {
-  const adsPossible = adsAllowed(plan)
+/** 맨 먼저 묻는 두 가지: 요금제와 분담 인원. 고르면 바로 아래 결과가 계산된다 */
+export function QuickCost({ settings, plan, onPlan, update, costPerCycle }: QuickProps) {
+  const people = settings.otherPeople + 1
+  return (
+    <div className="value-quick">
+      <Choice
+        id="value-plan"
+        label="① 어떤 요금제를 쓰세요?"
+        value={plan}
+        options={PLANS.map((p) => ({ value: p.id, label: p.label, hint: p.id === 'custom' ? '할인·제휴·과거 요금' : `월 ${won(p.price)}` }))}
+        onChange={onPlan}
+      />
+      {plan === 'custom' && (
+        <NumberField id="value-price" label="실제 월 결제액" suffix="원" value={settings.monthlyPrice} onChange={(v) => update('monthlyPrice', v)} />
+      )}
+      <ShareField value={settings.otherPeople} onChange={(v) => update('otherPeople', v)} />
+      {plan && (
+        <div className="value-cost-line" aria-live="polite">
+          <span>내 부담</span>
+          <strong>{costPerCycle === null ? '설정 확인' : `월 ${won(costPerCycle)}`}</strong>
+          <small>
+            {settings.costMode === 'personal'
+              ? '직접 입력한 내 부담액'
+              : people === 1 && !settings.extraFee
+                ? '혼자 내는 요금'
+                : `(${won(settings.monthlyPrice)}${settings.extraFee ? ` + 추가 ${won(settings.extraFee)}` : ''}) ÷ ${people}명`}
+          </small>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function CostSettings({ settings, adsPossible, update }: Props) {
   const people = settings.otherPeople + 1
   const periodSummary = (() => {
     try {
@@ -60,46 +93,24 @@ export default function CostSettings({ settings, plan, onPlan, update, costPerCy
   return (
     <div className="card value-block">
       <header className="value-block-head">
-        <span className="value-step">STEP 1</span>
-        <h3>내가 실제로 내는 요금</h3>
+        <span className="value-step">ADJUST 1</span>
+        <h3>요금을 나누는 방식이 다르다면</h3>
         <p>현재 요금을 선택 기간 전체에 동일하게 적용</p>
       </header>
 
-      <div className="value-cost-grid">
-        <Choice
-          id="value-plan"
-          className="span-all"
-          label="넷플릭스 요금제"
-          value={plan}
-          options={PLANS.map((p) => ({ value: p.id, label: p.label, hint: p.id === 'custom' ? '할인·제휴' : `월 ${won(p.price)}` }))}
-          onChange={onPlan}
-        />
-        <ShareField value={settings.otherPeople} onChange={(v) => update('otherPeople', v)} />
-        <Choice
-          id="value-cost-mode"
-          label="내 부담액 계산"
-          value={settings.costMode}
-          options={[
-            { value: 'split', label: `${people}명이 똑같이 나눔` },
-            { value: 'personal', label: '내 부담액 직접 입력' },
-          ]}
-          onChange={(v) => update('costMode', v)}
-        />
-        <NumberField id="value-price" label="실제 월 결제액" suffix="원" value={settings.monthlyPrice} onChange={(v) => update('monthlyPrice', v)} />
-        {settings.costMode === 'personal' && (
-          <NumberField id="value-personal" label="내가 내는 금액 (결제 주기당)" suffix="원" value={settings.personalPrice} onChange={(v) => update('personalPrice', v)} />
-        )}
-      </div>
-
-      <div className="value-cost-line" aria-live="polite">
-        <span>내 결제 주기당 부담액</span>
-        <strong>{costPerCycle === null ? '설정 확인' : won(costPerCycle)}</strong>
-        <small>
-          {settings.costMode === 'split'
-            ? `(${won(settings.monthlyPrice)} + 추가 ${won(settings.extraFee)}) ÷ ${people}명`
-            : '입력한 개인 부담액 적용'}
-        </small>
-      </div>
+      <Choice
+        id="value-cost-mode"
+        label="내 부담액 계산"
+        value={settings.costMode}
+        options={[
+          { value: 'split', label: `${people}명이 똑같이 나눔` },
+          { value: 'personal', label: '내 부담액 직접 입력' },
+        ]}
+        onChange={(v) => update('costMode', v)}
+      />
+      {settings.costMode === 'personal' && (
+        <NumberField id="value-personal" label="내가 내는 금액 (결제 주기당)" suffix="원" value={settings.personalPrice} onChange={(v) => update('personalPrice', v)} />
+      )}
       <p className="value-help">
         이 CSV 프로필 한 사람의 시청량을 개인 부담액과 비교합니다. 분담 인원은 비용을 나누는 사람 수이며 동시 시청 인원과 다릅니다.
       </p>
@@ -123,7 +134,7 @@ export default function CostSettings({ settings, plan, onPlan, update, costPerCy
         </div>
         <p className="value-help">
           선택 기간에 걸친 결제 주기마다 한 달 요금을 전액 반영하며, 기록이 없는 달도 포함합니다. 29~31일 결제는 해당 일이 없는 달의
-          말일로 계산합니다. 구독하지 않은 주기는 아래 ‘결제 주기별 내역’에서 제외할 수 있습니다. 추가 비용이 이미 월 결제액에
+          말일로 계산합니다. 구독하지 않은 주기는 위 RESULT 2의 ‘결제 주기별 내역’에서 제외할 수 있습니다. 추가 비용이 이미 월 결제액에
           포함됐다면 0원으로 두세요.
         </p>
         <p className="value-help">
@@ -159,7 +170,7 @@ export default function CostSettings({ settings, plan, onPlan, update, costPerCy
         )}
         <p className="value-help">
           CSV에는 실제 광고 정보가 없습니다. 초반 무광고 건수는 계산에 포함된 시청 기록을 날짜순으로 세며 매달 초기화하지 않습니다.
-          작품별 광고 수는 STEP 2에서 따로 수정할 수 있습니다. 광고주의 CPM은 내 절약액에 더하지 않습니다.
+          작품별 광고 수는 ADJUST 2에서 따로 수정할 수 있습니다. 광고주의 CPM은 내 절약액에 더하지 않습니다.
         </p>
       </details>
     </div>
