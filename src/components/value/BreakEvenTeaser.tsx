@@ -22,7 +22,6 @@ export default function BreakEvenTeaser() {
   return (
     <section className="teaser" aria-labelledby="teaser-title">
       <div className="teaser-head">
-        <p className="teaser-kicker">QUICK CHECK · 30초 본전 계산</p>
         <h2 id="teaser-title">
           한 달 <em>{won(price)}</em>,<br />이만큼은 봐야 본전이에요
         </h2>

@@ -4,11 +4,13 @@ type Props = {
   onFile: (file: File) => void
   onSample: () => void
   busy: boolean
+  /** 파일을 읽거나 분석하다 난 오류. 드롭존 바로 위에 보여 준다 */
+  error: string | null
 }
 
 const isCsv = (f: File) => /\.(csv|txt)$/i.test(f.name) || f.type === 'text/csv'
 
-export default function FileDrop({ onFile, onSample, busy }: Props) {
+export default function FileDrop({ onFile, onSample, busy, error }: Props) {
   const [over, setOver] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -29,15 +31,7 @@ export default function FileDrop({ onFile, onSample, busy }: Props) {
 
   return (
     <>
-      {localError && (
-        <div className="alert alert-error" role="alert">
-          <span aria-hidden="true">⚠️</span>
-          <p>{localError}</p>
-        </div>
-      )}
-
       <div className="guide-primary">
-        <p className="guide-primary-kicker">STEP 1 · GET YOUR FILE</p>
         <h2>시청 기록 CSV, 이렇게 내려받으세요</h2>
         <ol className="guide-steps">
           <li><span aria-hidden="true">1</span>넷플릭스 웹에서 분석할 <strong>프로필</strong>로 전환</li>
@@ -56,32 +50,42 @@ export default function FileDrop({ onFile, onSample, busy }: Props) {
         <p className="guide-hint">로그인이 필요하며, 선택한 프로필의 기록만 내려받아집니다.</p>
       </div>
 
+      {localError ? (
+        <div className="alert alert-error" role="alert">
+          <span aria-hidden="true">⚠️</span>
+          <p>{localError}</p>
+        </div>
+      ) : error && (
+        <div className="alert alert-error" role="alert">
+          <span aria-hidden="true">⚠️</span>
+          <div>
+            <h3>파일을 분석할 수 없습니다</h3>
+            <p>{error}</p>
+          </div>
+        </div>
+      )}
+
+      {/* 키보드·스크린리더는 안쪽 '파일 선택' 버튼으로 들어온다. 영역 클릭은 마우스용 지름길 */}
       <div
         className={`drop${over ? ' over' : ''}`}
-        role="button"
-        tabIndex={0}
-        aria-label="CSV 파일 불러오기"
-        onClick={() => inputRef.current?.click()}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            inputRef.current?.click()
-          }
+        onClick={() => {
+          if (!busy) inputRef.current?.click()
         }}
         onDragOver={(e) => {
           e.preventDefault()
           setOver(true)
         }}
-        onDragLeave={() => setOver(false)}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false)
+        }}
         onDrop={(e) => {
           e.preventDefault()
           setOver(false)
           take(e.dataTransfer.files)
         }}
       >
-        <p className="drop-kicker">DROP YOUR WATCH HISTORY</p>
         <div className="drop-icon" aria-hidden="true"><span>CSV</span></div>
-        <h2>{busy ? '분석하는 중…' : 'NetflixViewingHistory.csv 를 여기에 놓아주세요'}</h2>
+        <h2>{busy ? '분석하는 중…' : <>NetflixViewingHistory.csv&nbsp;를 여기에 놓아주세요</>}</h2>
         <p>넷플릭스에서 내려받은 시청 기록 CSV를 끌어다 놓거나, 아래 버튼으로 직접 선택할 수 있습니다.</p>
         <div className="drop-actions">
           <button
