@@ -166,10 +166,6 @@ export default function App() {
         </section>
       ) : (
         <section className="hero hero-landing" aria-labelledby="page-title">
-          <div className="hero-kicker">
-            <span>IS YOUR NETFLIX WORTH IT?</span>
-            <span>NETFLIX VIEWING HISTORY</span>
-          </div>
           <h1 id="page-title">
             넷플릭스,<br /><em>본전 뽑았나요?</em>
           </h1>
@@ -183,21 +179,11 @@ export default function App() {
         </section>
       )}
 
-      {error && (
-        <div className="alert alert-error" role="alert">
-          <span aria-hidden="true">⚠️</span>
-          <div>
-            <h3>파일을 분석할 수 없습니다</h3>
-            <p>{error}</p>
-          </div>
-        </div>
-      )}
-
       {!loaded ? (
         <>
           <BreakEvenTeaser />
           <div id="upload" className="upload-anchor">
-            <FileDrop onFile={onFile} onSample={onSample} busy={busy} />
+            <FileDrop onFile={onFile} onSample={onSample} busy={busy} error={error} />
           </div>
         </>
       ) : (
