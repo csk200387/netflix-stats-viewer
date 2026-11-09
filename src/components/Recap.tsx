@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RECAP_EXPORTS, SHARE_CARD, buildRecap, recapFileName, recapYears, sharePngOptions, type Recap, type RecapShow } from '../lib/recap'
-import { levelOf, fmtDate, type Entry } from '../lib/stats'
+import { WEEKDAYS, levelOf, fmtDate, type CalendarYear, type Entry } from '../lib/stats'
 
 const num = (n: number) => n.toLocaleString('ko-KR')
 // 재시청은 기록에 남지 않으므로 ‘몇 회 봤다’가 아니라 ‘몇 편’으로 센다
@@ -9,8 +9,32 @@ const pct = (part: number, whole: number) => (whole === 0 ? 0 : Math.round((part
 const CARDS = ['opening', 'favorites', 'habits', 'streak', 'fullyear', 'summary'] as const
 type CardId = (typeof CARDS)[number]
 const CARD_TITLES: Record<CardId, string> = { opening: '한 해 요약', favorites: '가장 많이 본 작품', habits: '나의 시청 습관', streak: '가장 길었던 스트릭', fullyear: '연중 시청 잔디', summary: '종합 공유 카드' }
-/** 4px 셀로 365~366칸을 한 화면에 맞춘다 */
-const FULL_YEAR_GRID_VARS = { '--cal-cell': '3px', '--cal-gap': '1px' } as CSSProperties
+
+/**
+ * 9:16 카드에 맞게 주(週)를 위→아래로 쌓고, 1~6월과 7~12월을 두 열로 나눈다.
+ * 두 반기에 걸친 주는 양쪽에 나오되 다른 반기의 날짜는 비워 모든 날이 한 번씩만 그려진다.
+ */
+const halfYear = (weeks: CalendarYear['weeks'], half: number) => weeks
+  .map((week) => week.map((cell) => (cell && Math.floor(cell.date.getMonth() / 6) === half ? cell : null)))
+  .filter((week) => week.some(Boolean))
+
+function YearColumns({ recap }: { recap: Recap }) {
+  return <div className="recap-halves" role="img" aria-label={`${recap.year}년 일별 시청 그래프, 시청한 날 ${recap.activeDays}일`}>
+    {[0, 1].map((half) => <div className="recap-half" key={half} aria-hidden="true">
+      <span />
+      {WEEKDAYS.map((day) => <span key={day} className="recap-half-wd">{day}</span>)}
+      {halfYear(recap.calendarYear.weeks, half).map((week, wi) => {
+        const first = week.find((cell) => cell?.date.getDate() === 1)
+        return [
+          <span key={`m-${wi}`} className="recap-half-month">{first ? `${first.date.getMonth() + 1}월` : ''}</span>,
+          ...week.map((cell, di) => cell
+            ? <span key={cell.key} className="cal-cell" data-level={cell.level} />
+            : <span key={`pad-${wi}-${di}`} className="cal-cell cal-pad" />),
+        ]
+      })}
+    </div>)}
+  </div>
+}
 
 function Split({ recap }: { recap: Recap }) {
   const seriesShare = pct(recap.seriesViews, recap.total)
@@ -62,11 +86,7 @@ function CardBody({ id, recap }: { id: CardId; recap: Recap }) {
     <p className="recap-big">{num(recap.longestStreak.days)}<small>일 연속</small></p><p className="recap-line recap-muted">{fmtDate(recap.longestStreak.from)} ~ {fmtDate(recap.longestStreak.to)}</p><StreakCalendar recap={recap} />
   </div>
   if (id === 'fullyear') return <div className="recap-body recap-fullyear-body"><p className="recap-eyebrow">연중 시청 잔디</p>
-    <div className="cal-grid recap-fullyear-grid" style={FULL_YEAR_GRID_VARS} role="img" aria-label={`${recap.year}년 일별 시청 그래프, 시청한 날 ${recap.activeDays}일`}>
-      {recap.calendarYear.weeks.map((week, wi) => week.map((cell, di) => cell
-        ? <span key={cell.key} className="cal-cell" data-level={cell.level} />
-        : <span key={`pad-${wi}-${di}`} className="cal-cell cal-pad" />))}
-    </div>
+    <YearColumns recap={recap} />
     <p className="recap-line recap-muted">{num(recap.activeDays)}일 시청 · {num(recap.total)}건</p>
   </div>
   const top = recap.topShows[0]

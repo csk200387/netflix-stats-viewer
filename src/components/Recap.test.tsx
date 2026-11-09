@@ -99,6 +99,19 @@ describe('RecapModal 공유 카드', () => {
     for (const id of ['01-overview', '02-top-shows', '03-habits', '04-streak', '05-full-year', '06-summary']) expect(copy).toContain(`data-export="${id}"`)
   })
 
+  it('연중 잔디는 1~6월·7~12월 세로 두 열로 그리고, 반기에 걸친 주가 있어도 모든 날을 한 번씩만 그린다', () => {
+    const fullYear = (page: string) => {
+      const screen = page.slice(0, page.indexOf('class="recap-export"'))
+      return screen.slice(screen.indexOf('data-card="fullyear"'), screen.indexOf('data-card="summary"'))
+    }
+    const card = fullYear(html)
+    expect(card.match(/class="recap-half"/g)).toHaveLength(2)
+    expect(card.match(/class="cal-cell" data-level=/g)).toHaveLength(365) // 2026년은 평년, 6/28~7/4 주가 양쪽 열에 나뉜다
+    expect([...card.matchAll(/recap-half-month">(\d+월)</g)].map((m) => m[1]))
+      .toEqual(['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'])
+    expect(fullYear(render([['가작', '2024-02-29']])).match(/class="cal-cell" data-level=/g)).toHaveLength(366)
+  })
+
   it('저장 버튼과 공유 주의 문구를 함께 둔다', () => {
     expect(html).toContain('이 장 저장')
     expect(html).toContain('모든 장 저장')
