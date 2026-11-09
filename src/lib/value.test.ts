@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { percent } from './format'
 import { classifyAll } from './stats'
-import { catchUpSeries, computeValue, cycleShows, cycleStart, dateKey, initialValueSettings, nextCycle, parseDate, type ValueSettings } from './value'
+import {
+  DEFAULT_RATES, catchUpSeries, computeValue, cycleShows, cycleStart, dateKey, initialValueSettings, nextCycle, parseDate,
+  summarizeValue, valueBasis, type CategoryId, type ShowValue, type ValueSettings,
+} from './value'
 
 const today = new Date(2026, 9, 15)
 const entriesOf = (...pairs: [string, string][]) => classifyAll(pairs.map(([title, date]) => ({ title, date: parseDate(date), rawDate: date })))
@@ -76,14 +80,14 @@ describe('본전 · 콘텐츠와 날짜별 결과', () => {
     expect(report.gross).toBe(3900)
     expect(report.duplicateCount).toBe(1)
     expect(report.typeRateGross).toBe(1400)
-    expect(report.estimatedCount).toBe(0)
+    expect(valueBasis(report).sources).toMatchObject({ user: { count: 3 }, tmdb: { count: 0 }, default: { count: 0 } })
   })
 
   it('유형 미지정을 추정으로 집계하고 미확인을 실제 0원 가격과 구분한다', () => {
     const entries = entriesOf(['시리즈: 시즌 1: 1화', '2026-01-01'], ['미확인', '2026-01-01'], ['무료', '2026-01-01'], ['독점작', '2026-01-01'])
     const report = computeValue(entries, settingsOf({ shows: { 미확인: { category: 'exclude' }, 무료: { category: 'custom', price: 0 }, 독점작: { category: 'custom' } } }), today)
     expect(report.gross).toBe(1650)
-    expect(report.estimatedCount).toBe(1)
+    expect(valueBasis(report).sources).toMatchObject({ user: { count: 1, gross: 0 }, default: { count: 1, gross: 1650 } })
     expect(report.excludedCount).toBe(2)
     expect(report.cycles[0].days[0].watches).toHaveLength(2)
   })
@@ -154,6 +158,133 @@ describe('본전 · 광고 시간', () => {
     expect(report.adCost).toBeCloseTo(500)
     expect(report.net).toBeCloseTo(7400)
     expect(report.cycles[0].firstReached).toBe('2026-01-06')
+  })
+})
+
+describe('본전 · 결론이 기대는 가정', () => {
+  // 1월: TMDB가 찾은 드라마 2화(1,650×2) + 장르 미확인 시리즈 2화(기본 1,650×2) + 직접 단가 영화 1편(2,000). 2월: 기록 없음
+  const entries = entriesOf(
+    ['드라마: 시즌 1: 1화', '2026-01-03'], ['드라마: 시즌 1: 2화', '2026-01-04'],
+    ['모르는 쇼: 시즌 1: 1화', '2026-01-10'], ['모르는 쇼: 시즌 1: 2화', '2026-01-11'],
+    ['영화', '2026-01-20'],
+  )
+  const settings = settingsOf({ to: '2026-02-28', guesses: { 드라마: 'drama' }, shows: { 영화: { category: 'movie', price: 2000 } } })
+  const report = computeValue(entries, settings, today)
+  const basis = valueBasis(report)
+
+  it('손으로 계산한 기대값과 같다', () => {
+    // 환산 8,600 ÷ 부담 7,000×2 = 61.4% → 손해, 본전 달성은 1월 하나
+    expect([report.gross, report.totalCost, summarizeValue(report).verdict, summarizeValue(report).reachedCycles]).toEqual([8600, 14000, 'short', 1])
+    expect(basis.sources).toEqual({
+      user: { count: 1, gross: 2000, net: 2000 },
+      tmdb: { count: 2, gross: 3300, net: 3300 },
+      default: { count: 2, gross: 3300, net: 3300 },
+    })
+    // 유형별 단가로 센 6,600원에 k를 곱해 6,600k + 2,000 = 14,000 → k = 12,000 / 6,600
+    expect(basis.rateFlip).toBeCloseTo(12000 / 6600, 12)
+    // 기본값 3,300원을 빼면 5,300 ÷ 14,000, 1월도 5,300 < 7,000 이라 달성 0개
+    expect(basis.withoutDefault).toEqual({ ratio: 5300 / 14000, earned: false, reachedCycles: 0 })
+    expect(basis.fallbackSeries).toBe(2)
+    // 기록 없는 2월(7,000원)을 빼면 8,600 ÷ 7,000 → 뽑았어요로 바뀐다
+    expect(basis.idle).toEqual({ keys: ['2026-02-01'], cost: 7000, ratio: 8600 / 7000, earned: true })
+    expect(basis.partialCycles).toBe(0)
+  })
+
+  it('진행 중인(부분 집계) 주기는 기록이 없어도 ‘기록 없는 주기’로 보지 않는다', () => {
+    const partial = valueBasis(computeValue(entries, { ...settings, to: '2026-02-10' }, today))
+    expect(partial.idle.keys).toEqual([])
+    expect(partial.partialCycles).toBe(1)
+  })
+
+  it('부담이 0원이거나 유형별 단가를 쓰지 않으면 단가 배수를 만들지 않는다', () => {
+    expect(valueBasis(computeValue(entries, { ...settings, monthlyPrice: 0 }, today))).toMatchObject({ rateFlip: null, idle: { ratio: null, earned: false } })
+    const allCustom = { ...settings, guesses: {}, shows: { 드라마: { category: 'custom', price: 900 }, '모르는 쇼': { category: 'exclude' }, 영화: { category: 'movie', price: 2000 } } } satisfies ValueSettings
+    expect(valueBasis(computeValue(entries, allCustom, today)).rateFlip).toBeNull()
+  })
+
+  // 결정적 의사난수(mulberry32)로 만든 무작위 기록·설정에서, 닫힌 식으로 구한 값을 엔진으로 다시 계산해 맞춰 본다
+  const rng = (seed: number) => () => {
+    seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+  const cases = Array.from({ length: 200 }, (_, n) => {
+    const r = rng(n + 1)
+    const pick = <T,>(items: readonly T[]) => items[Math.floor(r() * items.length)]
+    const pairs = Array.from({ length: 1 + Math.floor(r() * 25) }, (): [string, string] => {
+      const show = pick(['가', '나', '다', '라', '마'])
+      const title = show === '다' || show === '라' ? show : `${show}: 시즌 1: ${1 + Math.floor(r() * 30)}화`
+      return [title, dateKey(new Date(2026, 0, 1 + Math.floor(r() * 90)))]
+    })
+    const guesses: Record<string, CategoryId> = r() < 0.5 ? { 가: 'anime', 다: 'docFilm' } : { 나: 'drama' }
+    const shows: Record<string, ShowValue> = {}
+    if (r() < 0.4) shows.라 = { category: 'movie', price: Math.floor(r() * 3000) }
+    if (r() < 0.3) shows.마 = { category: pick(['kids', 'exclude', 'custom'] as const) }
+    const settings = settingsOf({
+      to: '2026-03-31', monthlyPrice: pick([0, 1000, 5500, 7000, 13500, 17000, 40000]), otherPeople: Math.floor(r() * 3),
+      guesses, shows, adsEnabled: r() < 0.5, adFreeEntries: pick([0, 0, 2]),
+      excludedCycles: ['2026-01-01', '2026-02-01', '2026-03-01'].filter(() => r() < 0.2),
+    })
+    return { entries: entriesOf(...pairs), settings }
+  })
+  const scaled = (s: ValueSettings, k: number): ValueSettings =>
+    ({ ...s, rates: Object.fromEntries(Object.entries(DEFAULT_RATES).map(([id, p]) => [id, p * k])) as ValueSettings['rates'] })
+
+  it('기록 건수는 계산·제외·중복·기간 밖으로 빠짐없이 나뉘고 근거별 합이 전체와 같다', () => {
+    for (const { entries, settings } of cases) {
+      const report = computeValue(entries, settings, today)
+      const { sources } = valueBasis(report)
+      const all = Object.values(sources)
+      expect(report.countedCount + report.excludedCount + report.duplicateCount + report.outsideCount).toBe(entries.length)
+      expect(all.reduce((sum, s) => sum + s.count, 0)).toBe(report.countedCount)
+      expect(report.cycles.reduce((sum, c) => sum + c.recorded, 0)).toBe(report.countedCount + report.excludedCount)
+      expect(all.reduce((sum, s) => sum + s.gross, 0)).toBeCloseTo(report.gross, 6)
+      expect(all.reduce((sum, s) => sum + s.net, 0)).toBeCloseTo(report.net, 6)
+    }
+  })
+
+  it('유형별 단가에 배수를 곱하면 바로 그 배수를 경계로 결론이 뒤집힌다', () => {
+    let checked = 0
+    for (const { entries, settings } of cases) {
+      const flip = valueBasis(computeValue(entries, settings, today)).rateFlip
+      if (flip === null) continue
+      const verdictAt = (k: number) => summarizeValue(computeValue(entries, scaled(settings, k), today)).verdict
+      expect(verdictAt(1)).toBe(flip <= 1 + 1e-9 ? 'earned' : 'short')
+      if (flip > 0) {
+        expect(verdictAt(flip * (1 - 1e-6))).toBe('short')
+        expect(verdictAt(flip * (1 + 1e-6))).toBe('earned')
+        checked++
+      }
+    }
+    expect(checked).toBeGreaterThan(100)
+  })
+
+  it('‘기록 없는 주기 빼기’와 ‘장르 확인한 기록만’ 결과가 실제로 그렇게 설정해 다시 계산한 값과 같다', () => {
+    for (const { entries, settings } of cases) {
+      const report = computeValue(entries, settings, today)
+      const basis = valueBasis(report)
+      if (basis.idle.keys.length > 0 && basis.idle.ratio !== null) {
+        const redone = summarizeValue(computeValue(entries, { ...settings, excludedCycles: [...settings.excludedCycles, ...basis.idle.keys] }, today))
+        expect(redone.ratio).toBeCloseTo(basis.idle.ratio, 9)
+        expect(redone.verdict === 'earned').toBe(basis.idle.earned)
+      }
+      // 초반 무광고 건수는 계산에 든 기록 순서로 세므로, 기록을 빼면 다른 기록의 광고 여부가 달라진다. 그 경우는 비교하지 않는다
+      if (basis.withoutDefault && basis.withoutDefault.ratio !== null && !(settings.adsEnabled && settings.adFreeEntries > 0)) {
+        const unknown = [...new Set(report.cycles.flatMap((c) => c.days.flatMap((d) => d.watches)).filter((w) => w.source === 'default').map((w) => w.entry.show))]
+        const shows = { ...settings.shows, ...Object.fromEntries(unknown.map((name) => [name, { category: 'exclude' as const }])) }
+        const redone = summarizeValue(computeValue(entries, { ...settings, shows }, today))
+        expect(redone.ratio).toBeCloseTo(basis.withoutDefault.ratio, 9)
+        expect(redone.verdict === 'earned').toBe(basis.withoutDefault.earned)
+        expect(redone.reachedCycles).toBe(basis.withoutDefault.reachedCycles)
+      }
+    }
+  })
+})
+
+describe('본전 · 퍼센트 표시', () => {
+  it('정수로 내려서 100% 미만인데 100%로 보이는 일이 없다', () => {
+    expect([0.9996, 1, 2.4599, 0.29, 0.07].map(percent)).toEqual(['99%', '100%', '245%', '29%', '7%'])
   })
 })
 

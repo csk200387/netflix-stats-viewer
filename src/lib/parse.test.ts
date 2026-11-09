@@ -45,6 +45,17 @@ describe('parseDate', () => {
     }
   })
 
+  it('한국어 로캘의 두 자리 연도 짧은 표기를 연·월·일로 읽고, 끝 마침표가 없는 D.M.YY와 섞지 않는다', () => {
+    const d = parseDate('26. 9. 3.')!
+    expect([d.getFullYear(), d.getMonth() + 1, d.getDate()]).toEqual([2026, 9, 3])
+    expect(parseDate('25. 12. 31.')?.getMonth()).toBe(11)
+    expect(parseDate('26. 2. 30.')).toBeNull()
+    expect(parseDate('3.9.26', true)?.getMonth()).toBe(8) // 독일식 3.9.26 은 기존대로 일·월·연
+    const r = parseViewingHistory('Title,Date\n"가: 시즌 1: 1화","26. 9. 3."\n"나","25. 12. 31."\n')
+    expect(r.records.map((x) => x.rawDate)).toEqual(['26. 9. 3.', '25. 12. 31.'])
+    expect(r.skipped).toHaveLength(0)
+  })
+
   it('영문 월 이름을 읽는다', () => {
     expect(parseDate('3 Sep 2026')?.getMonth()).toBe(8)
     expect(parseDate('Sep 3, 2026')?.getDate()).toBe(3)

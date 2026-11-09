@@ -1,23 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Entry } from '../../lib/stats'
-import { num, percent, signedWon, won } from '../../lib/format'
+import { num, percent, won } from '../../lib/format'
 import { TMDB_TOKEN, lookupTitles } from '../../lib/tmdb'
 import {
-  adsAllowed, applyPlan, computeValue, initialValueSettings, showOverride, summarizeValue,
+  adsAllowed, applyPlan, computeValue, initialValueSettings, showOverride, summarizeValue, valueBasis,
   type CategoryId, type PlanId, type ShowValue, type ValueReport, type ValueSettings, type ValueSummary,
 } from '../../lib/value'
 import ContentRates from './ContentRates'
 import CostSettings, { QuickCost } from './CostSettings'
 import CycleBoard from './CycleBoard'
 import CycleVerdict from './CycleVerdict'
+import ValueBasis from './ValueBasis'
 
 const ANSWER: Record<ValueSummary['verdict'], string> = {
   earned: '네, 뽑았어요',
   short: '아직은 손해예요',
-  free: '낸 돈이 없어요',
+  free: '내 부담이 없어요',
 }
 
-function Answer({ summary, error, asked }: { summary: ValueSummary | null; error: string | null; asked: boolean }) {
+type AnswerProps = { report: ValueReport | null; summary: ValueSummary | null; error: string | null; asked: boolean }
+
+function Answer({ report, summary, error, asked }: AnswerProps) {
   if (!asked) {
     return (
       <div className="value-answer" aria-live="polite">
@@ -27,7 +30,7 @@ function Answer({ summary, error, asked }: { summary: ValueSummary | null; error
       </div>
     )
   }
-  if (!summary) {
+  if (!summary || !report) {
     return (
       <div className="value-answer is-error" aria-live="polite">
         <span>지금까지의 답</span>
@@ -44,15 +47,15 @@ function Answer({ summary, error, asked }: { summary: ValueSummary | null; error
       {summary.ratio !== null && (
         <>
           <p>
-            {signedWon(summary.balance)} <small>· 낸 돈 대비 {percent(summary.ratio)}</small>
+            내 부담의 {percent(summary.ratio)} <small>· 환산액 {won(report.net)} / 내 부담 {won(report.totalCost)}</small>
           </p>
           <div className="value-answer-bar" aria-hidden="true"><i style={{ width: `${fill}%` }} /></div>
         </>
       )}
       <small>본전 달성 {summary.reachedCycles} / {summary.chargedCycles} 결제 주기</small>
       <small className="value-answer-basis">
-        비슷한 콘텐츠를 따로 빌려 봤다면 든 돈으로 환산한 추정치
-        {summary.typeRateShare !== null && ` · 환산액의 ${percent(summary.typeRateShare)}는 유형별 추정 단가`}
+        비슷한 작품을 따로 빌려 봤다면 들었을 돈(추정)과 내 부담(설정)의 비교예요. 실제로 아낀 돈은 아니에요.{' '}
+        <a href="#value-basis">이 답이 바뀌는 조건</a>
       </small>
     </div>
   )
@@ -68,28 +71,6 @@ function LookupStatus({ lookup }: { lookup: Lookup }) {
       ? `TMDB에서 작품 장르 확인 중… ${num(lookup.done)} / ${num(lookup.total)}`
       : `TMDB에서 작품 ${num(lookup.total)}개 중 ${num(lookup.found)}개의 장르를 찾아 단가에 반영했어요`
   return <p className="value-lookup" aria-live="polite">{text}</p>
-}
-
-function Metrics({ report, summary }: { report: ValueReport; summary: ValueSummary }) {
-  return (
-    <div className="value-summary" aria-live="polite">
-      <div className="value-metric">
-        <span>기간 전체 내 부담액</span>
-        <strong>{won(report.totalCost)}</strong>
-        <small>{summary.activeCycles}개 결제 주기 · 주기별 전액</small>
-      </div>
-      <div className="value-metric">
-        <span>광고 비용 차감 후 환산액</span>
-        <strong>{won(report.net)}</strong>
-        <small>단건 환산 {won(report.gross)} − 광고 시간 {won(report.adCost)}</small>
-      </div>
-      <div className="value-metric">
-        <span>본전을 채운 결제 주기</span>
-        <strong>{summary.reachedCycles}<small> / {summary.chargedCycles}회</small></strong>
-        <small>부분 집계 기간도 포함 · 부담액 0원 제외</small>
-      </div>
-    </div>
-  )
 }
 
 /** 본전 계산기. 불러온 전체 기록으로 계산하며 통계 화면의 검색·기간 필터와 독립적이다. */
@@ -127,6 +108,7 @@ export default function ValueAnalyzer({ entries }: { entries: Entry[] }) {
     }
   }, [entries, settings])
   const summary = useMemo(() => (report ? summarizeValue(report) : null), [report])
+  const basis = useMemo(() => (report ? valueBasis(report) : null), [report])
 
   const cycles = report?.cycles ?? []
   const cycle = cycles.find((c) => c.key === cycleKey) ?? cycles.filter((c) => c.included).at(-1) ?? cycles.at(-1)
@@ -136,6 +118,8 @@ export default function ValueAnalyzer({ entries }: { entries: Entry[] }) {
       ...old,
       excludedCycles: old.excludedCycles.includes(key) ? old.excludedCycles.filter((k) => k !== key) : [...old.excludedCycles, key],
     }))
+  const excludeCycles = (keys: string[]) =>
+    setSettings((old) => ({ ...old, excludedCycles: [...new Set([...old.excludedCycles, ...keys])] }))
   const updateShow = (name: string, patch: Partial<ShowValue>, fallback: CategoryId) =>
     setSettings((old) => ({
       ...old,
@@ -169,16 +153,24 @@ export default function ValueAnalyzer({ entries }: { entries: Entry[] }) {
           />
           {lookup && <LookupStatus lookup={lookup} />}
         </div>
-        <Answer summary={summary} error={error} asked={plan !== null} />
+        <Answer report={report} summary={summary} error={error} asked={plan !== null} />
       </div>
 
       {plan && error && <div className="alert alert-error" role="alert">{error}</div>}
 
-      {plan && report && summary && cycle && (
+      {plan && report && summary && basis && cycle && (
         <>
+          <ValueBasis
+            report={report}
+            summary={summary}
+            basis={basis}
+            settings={settings}
+            lookupPending={lookup !== null && lookup.found === null && lookup.error === null}
+            onExcludeCycles={excludeCycles}
+            onIncludeAll={() => update('excludedCycles', [])}
+          />
           <CycleBoard cycles={cycles} selectedKey={cycle.key} onSelect={setCycleKey} />
           <CycleVerdict report={report} cycle={cycle} settings={settings} onSelectCycle={setCycleKey} onToggleCycle={toggleCycle} />
-          <Metrics report={report} summary={summary} />
         </>
       )}
 
@@ -206,10 +198,9 @@ export default function ValueAnalyzer({ entries }: { entries: Entry[] }) {
 
       {plan && report && (
         <p className="value-footnote">
-          기본 유형 추정 {report.estimatedCount}건 · 미확인으로 제외 {report.excludedCount}건 · 같은 날짜·제목의 중복행 제외{' '}
-          {report.duplicateCount}건 · 선택 기간·구독 제외 주기 밖 {report.outsideCount}건. 시청시간·완주 여부는 확인할 수 없으며 기록
-          한 건을 한 편으로 가정합니다. 재시청은 날짜가 다르면 별도 건으로 계산합니다. 동일 작품 구매를 대체하지 않는 값은 실제
-          절약액이 아닌 환산 추정치입니다.
+          CSV에는 시청시간·완주 여부·광고 정보가 없어 기록 한 건을 한 편으로 셉니다. 같은 화를 다시 보면 넷플릭스 기록에는 마지막으로 본
+          날짜만 남으므로, 예전 결제 주기에 본 회차가 최근 주기로 옮겨 계산될 수 있고 재시청은 따로 셀 수 없습니다. 같은 작품을 실제로
+          단건 구매하는 것을 대신한 경우가 아니라면 환산액은 절약액이 아닙니다.
         </p>
       )}
     </div>

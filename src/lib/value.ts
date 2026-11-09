@@ -102,7 +102,10 @@ export function resolveShow(entry: Entry, settings: ValueSettings) {
     estimated: override === undefined, guessed: override === undefined && guess !== undefined, typeRate: override?.price === undefined, unpriced: category === 'custom' && override?.price === undefined }
 }
 
-export type ValuedWatch = { entry: Entry; category: CategoryId; price: number; adMinutes: number }
+/** 유형을 정한 근거: 작품별 직접 지정 · TMDB 검색 추정 · 정보 없이 시리즈/영화 기본값 */
+export type WatchSource = 'user' | 'tmdb' | 'default'
+/** 계산에 들어간 기록 한 건. net은 단가에서 광고 시간 비용을 뺀 값 */
+export type ValuedWatch = { entry: Entry; category: CategoryId; price: number; adMinutes: number; net: number; source: WatchSource }
 export type ValueDay = {
   key: string; date: Date; watches: ValuedWatch[]; gross: number; adMinutes: number; adCost: number
   net: number; cumulative: number
@@ -111,12 +114,15 @@ export type ValueCycle = {
   key: string; start: Date; end: Date; daysInCycle: number; included: boolean; partial: boolean
   cost: number; gross: number; adCost: number; net: number; firstReached: string | null
   reached: boolean; days: ValueDay[]
+  /** 분석 기간 안 이 주기의 시청 기록 수 (계산 제외로 둔 작품 포함, 중복 제외) */
+  recorded: number
 }
 export type ValueReport = {
   cycles: ValueCycle[]; costPerCycle: number; totalCost: number; gross: number; adCost: number; net: number
   /** gross 중 작품별 단가 없이 유형별 추정 단가로 계산한 금액 */
   typeRateGross: number
-  estimatedCount: number; excludedCount: number; duplicateCount: number; outsideCount: number
+  /** 기록 전체 = countedCount + excludedCount + duplicateCount + outsideCount */
+  countedCount: number; excludedCount: number; duplicateCount: number; outsideCount: number
 }
 const EPSILON = 1e-7
 const enough = (value: number, cost: number) => value + EPSILON >= cost
@@ -147,13 +153,13 @@ export function computeValue(entries: Entry[], settings: ValueSettings, today = 
     const cycle: ValueCycle = {
       key: dateKey(start), start, end, daysInCycle: dayNumber(next) - dayNumber(start), included,
       partial: start < from || end > to, cost: included ? costPerCycle : 0,
-      gross: 0, adCost: 0, net: 0, firstReached: null, reached: false, days: [],
+      gross: 0, adCost: 0, net: 0, firstReached: null, reached: false, days: [], recorded: 0,
     }
     cycles.push(cycle)
     byCycle.set(cycle.key, cycle)
   }
   const watchesByDay = new Map<string, ValuedWatch[]>()
-  let estimatedCount = 0, excludedCount = 0, duplicateCount = 0, outsideCount = 0, eligibleCount = 0, typeRateGross = 0
+  let excludedCount = 0, duplicateCount = 0, outsideCount = 0, eligibleCount = 0, typeRateGross = 0
   const seen = new Set<string>()
   const sorted = [...entries].sort((a, b) => a.date.getTime() - b.date.getTime())
   for (const entry of sorted) {
@@ -163,15 +169,17 @@ export function computeValue(entries: Entry[], settings: ValueSettings, today = 
     const identity = JSON.stringify([key, entry.title])
     if (seen.has(identity)) { duplicateCount++; continue }
     seen.add(identity)
+    cycle.recorded++
     const value = resolveShow(entry, settings)
     if (value.category === 'exclude' || value.unpriced) { excludedCount++; continue }
-    if (value.estimated) estimatedCount++
     if (value.typeRate) typeRateGross += value.price
     const adMinutes = settings.adsEnabled && !settings.kidsProfile && eligibleCount >= settings.adFreeEntries
       ? value.adCount * settings.adSeconds / 60 : 0
     eligibleCount++
     const watches = watchesByDay.get(key) ?? []
-    watches.push({ entry, category: value.category, price: value.price, adMinutes })
+    watches.push({ entry, category: value.category, price: value.price, adMinutes,
+      net: value.price - adMinutes * settings.hourlyValue / 60,
+      source: value.estimated ? (value.guessed ? 'tmdb' : 'default') : 'user' })
     watchesByDay.set(key, watches)
   }
   for (const cycle of cycles) {
@@ -197,7 +205,7 @@ export function computeValue(entries: Entry[], settings: ValueSettings, today = 
   }
   const sum = (key: 'cost' | 'gross' | 'adCost' | 'net') => cycles.reduce((total, cycle) => total + cycle[key], 0)
   return { cycles, costPerCycle, totalCost: sum('cost'), gross: sum('gross'), adCost: sum('adCost'), net: sum('net'),
-    typeRateGross, estimatedCount, excludedCount, duplicateCount, outsideCount }
+    typeRateGross, countedCount: eligibleCount, excludedCount, duplicateCount, outsideCount }
 }
 
 /* ── 화면용 파생값 ─────────────────────────────────────────────── */
@@ -259,7 +267,7 @@ export function cycleShows(cycle: ValueCycle, settings: ValueSettings): ShowCont
         rows.set(w.entry.show, row)
       }
       row.count++
-      row.net += w.price - w.adMinutes * settings.hourlyValue / 60
+      row.net += w.net
       row.last = day.date.getTime()
     }
   }
@@ -288,25 +296,74 @@ export function cycleStatus(cycle: ValueCycle): CycleStatus {
 
 export type ValueSummary = {
   verdict: 'earned' | 'short' | 'free'
-  /** 낸 돈 대비 환산액 비율. 낸 돈이 0원이면 null */
+  /** 내 부담 대비 환산액 비율. 부담이 0원이면 null */
   ratio: number | null
-  balance: number
-  activeCycles: number
   chargedCycles: number
   reachedCycles: number
-  /** 환산액 중 유형별 추정 단가로 계산한 비율. 환산액이 0원이면 null */
-  typeRateShare: number | null
 }
 export function summarizeValue(report: ValueReport): ValueSummary {
-  const active = report.cycles.filter((c) => c.included)
-  const charged = active.filter((c) => c.cost > 0)
+  const charged = report.cycles.filter((c) => c.included && c.cost > 0)
   return {
     verdict: report.totalCost === 0 ? 'free' : enough(report.net, report.totalCost) ? 'earned' : 'short',
     ratio: report.totalCost > 0 ? report.net / report.totalCost : null,
-    balance: report.net - report.totalCost,
-    activeCycles: active.length,
     chargedCycles: charged.length,
     reachedCycles: charged.filter((c) => c.reached).length,
-    typeRateShare: report.gross > 0 ? report.typeRateGross / report.gross : null,
+  }
+}
+
+/* ── 결론이 기대는 가정 ─────────────────────────────────────────── */
+
+type Scenario = { ratio: number | null; earned: boolean }
+export type ValueBasis = {
+  /** 유형을 정한 근거별 건수와 환산액 (gross: 단가 합, net: 광고 차감 후) */
+  sources: Record<WatchSource, { count: number; gross: number; net: number }>
+  /**
+   * 유형별 단가 전체에 이 배수를 곱하면 전체 결론이 바뀐다. 환산액이 단가에 선형이라 닫힌 식으로 구한다.
+   * 1 이하면 그만큼 낮아져도 본전, 1보다 크면 그만큼 높아야 본전. 부담이 0원이거나 유형별 단가를 안 썼으면 null
+   */
+  rateFlip: number | null
+  /** 장르를 찾지 못해 기본값으로 센 기록을 빼고 다시 센 결과. 그런 기록이 없으면 null */
+  withoutDefault: (Scenario & { reachedCycles: number }) | null
+  /** 기본값으로 센 기록 중 ‘회차형 · 유형 미지정’ 단가를 쓴 건수 */
+  fallbackSeries: number
+  /** 주기 전체가 분석 기간 안인데 시청 기록이 한 건도 없는 결제 주기와, 그 주기를 빼고 다시 센 결과 */
+  idle: Scenario & { keys: string[]; cost: number }
+  /** 분석 기간에 일부 날짜만 든 결제 주기 수 (부담액은 전액 반영) */
+  partialCycles: number
+}
+
+export function valueBasis(report: ValueReport): ValueBasis {
+  const sources = { user: { count: 0, gross: 0, net: 0 }, tmdb: { count: 0, gross: 0, net: 0 }, default: { count: 0, gross: 0, net: 0 } }
+  let reachedWithoutDefault = 0, fallbackSeries = 0
+  for (const cycle of report.cycles) {
+    let fallback = 0
+    for (const day of cycle.days) {
+      for (const w of day.watches) {
+        const s = sources[w.source]
+        s.count++
+        s.gross += w.price
+        s.net += w.net
+        if (w.source !== 'default') continue
+        fallback += w.net
+        if (w.category === 'series') fallbackSeries++
+      }
+    }
+    if (cycle.included && cycle.cost > 0 && enough(cycle.net - fallback, cycle.cost)) reachedWithoutDefault++
+  }
+  const cost = report.totalCost
+  const scenario = (net: number, total: number): Scenario => ({ ratio: total > 0 ? net / total : null, earned: total > 0 && enough(net, total) })
+  const charged = report.cycles.filter((c) => c.included && c.cost > 0)
+  // 진행 중인 주기는 아직 기록이 없을 수 있으므로 ‘기록 없는 주기’로 보지 않는다
+  const idle = charged.filter((c) => !c.partial && c.recorded === 0)
+  const idleCost = idle.reduce((total, c) => total + c.cost, 0)
+  return {
+    sources,
+    rateFlip: cost > 0 && report.typeRateGross > 0
+      ? (cost + report.adCost - (report.gross - report.typeRateGross)) / report.typeRateGross : null,
+    withoutDefault: sources.default.count > 0
+      ? { ...scenario(report.net - sources.default.net, cost), reachedCycles: reachedWithoutDefault } : null,
+    fallbackSeries,
+    idle: { ...scenario(report.net, cost - idleCost), keys: idle.map((c) => c.key), cost: idleCost },
+    partialCycles: charged.filter((c) => c.partial).length,
   }
 }

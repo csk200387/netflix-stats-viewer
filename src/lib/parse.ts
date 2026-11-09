@@ -119,7 +119,7 @@ function makeDate(y: number, m: number, d: number): Date | null {
 
 /**
  * 날짜 문자열 하나를 해석한다.
- * 지원: 2026-09-03 / 2026. 9. 3. / 2026년 9월 3일 / 9/3/26 / 03.09.2026 / 3 Sep 2026
+ * 지원: 2026-09-03 / 2026. 9. 3. / 26. 9. 3. / 2026년 9월 3일 / 9/3/26 / 03.09.2026 / 3 Sep 2026
  * `dayFirst`가 true면 숫자 3개 형식을 D/M/Y로 읽는다.
  */
 export function parseDate(input: string, dayFirst = false): Date | null {
@@ -129,6 +129,10 @@ export function parseDate(input: string, dayFirst = false): Date | null {
   // 연도가 앞에 오는 형식 (ISO, 한국식)
   let m = /^(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]?\s*(\d{1,2})\s*[.일]?$/.exec(s)
   if (m) return makeDate(+m[1], +m[2], +m[3])
+
+  // 한국어 로캘의 짧은 날짜(ko-KR dateStyle short): 26. 9. 3. — 끝의 마침표로 D.M.YY(3.9.26)와 구분한다
+  m = /^(\d{2})\.\s*(\d{1,2})\.\s*(\d{1,2})\.$/.exec(s)
+  if (m) return makeDate(expandYear(+m[1], 2), +m[2], +m[3])
 
   // 영문 월 이름: 3 Sep 2026 / Sep 3, 2026
   m = /^(\d{1,2})\s+([a-z]{3,})\.?,?\s+(\d{2,4})$/i.exec(s)

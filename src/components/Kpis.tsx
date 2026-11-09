@@ -24,7 +24,7 @@ export default function Kpis({ stats }: { stats: Stats }) {
         <div className="kpi-label">가장 많이 본 작품</div>
         <div className="kpi-value kpi-value-text">{stats.topShow?.show ?? '—'}</div>
         <div className="kpi-sub">
-          {stats.topShow ? `${num(stats.topShow.count)}${stats.topShow.kind === 'series' ? '화' : '회'} 시청` : ''}
+          {stats.topShow ? `${num(stats.topShow.count)}${stats.topShow.kind === 'series' ? '화' : '편'} 시청` : ''}
         </div>
       </div>
       <div className="kpi">

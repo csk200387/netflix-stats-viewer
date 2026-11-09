@@ -3,7 +3,8 @@ import { RECAP_EXPORTS, SHARE_CARD, buildRecap, recapFileName, recapYears, share
 import { levelOf, fmtDate, type Entry } from '../lib/stats'
 
 const num = (n: number) => n.toLocaleString('ko-KR')
-const unit = (s: RecapShow) => (s.kind === 'series' ? '화' : '회')
+// 재시청은 기록에 남지 않으므로 ‘몇 회 봤다’가 아니라 ‘몇 편’으로 센다
+const unit = (s: RecapShow) => (s.kind === 'series' ? '화' : '편')
 const pct = (part: number, whole: number) => (whole === 0 ? 0 : Math.round((part / whole) * 100))
 const CARDS = ['opening', 'favorites', 'habits', 'streak', 'fullyear', 'summary'] as const
 type CardId = (typeof CARDS)[number]

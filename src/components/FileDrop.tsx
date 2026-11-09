@@ -113,7 +113,7 @@ export default function FileDrop({ onFile, onSample, busy, error }: Props) {
           </button>
         </div>
         <p className="drop-note">
-          파일은 업로드하지 않고 브라우저에서 읽습니다. 장르를 알기 위해 작품 제목만 TMDB로 보내 조회합니다. 파일과 시청 날짜는 보내지 않습니다.
+          파일은 업로드하지 않고 브라우저에서 읽습니다. 불러오면 장르를 알기 위해 기록의 제목만(시리즈는 작품명) TMDB로 보내 조회합니다. 파일과 시청 날짜는 보내지 않습니다.
         </p>
         <input
           ref={inputRef}
@@ -138,8 +138,9 @@ export default function FileDrop({ onFile, onSample, busy, error }: Props) {
         <div className="guide-card">
           <h3>외부로 보내는 것</h3>
           <p>
-            본전 계산에서 애니·드라마 등 장르를 구분하려고 작품 제목만 TMDB(영화·TV 정보 사이트)에서 검색합니다. 시청 날짜와
-            파일은 보내지 않으며, 새로고침하면 불러온 데이터는 사라집니다.
+            본전 계산에서 애니·드라마 등 장르를 구분하려고, 파일을 불러오는 즉시 기록의 제목을 TMDB(영화·TV 정보 사이트)에서
+            검색합니다. 시리즈는 시즌·회차 표기를 뗀 작품명을, 한 편만 본 제목은 기록에 적힌 그대로 보냅니다. 시청 날짜와 파일은
+            보내지 않으며, 새로고침하면 불러온 데이터는 사라집니다.
           </p>
         </div>
       </div>

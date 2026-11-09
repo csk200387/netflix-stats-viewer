@@ -127,12 +127,24 @@ h1,h2,h3,p{margin-top:0}h1,h2,h3{line-height:1.05;letter-spacing:-.045em;text-wr
 .value-show-table input:disabled { opacity: .4; }
 .value-show-table .btn { padding: 8px 12px; white-space: nowrap; }
 .value-row-note { display: block; margin-top: 6px; font-size: 10px; font-weight: 400; color: var(--muted); }
-.value-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 20px 0; }
-.value-metric { display: flex; flex-direction: column; justify-content: space-between; gap: 18px; padding: 24px; min-height: 180px; border: 1px solid var(--line); border-radius: var(--radius); background: #111; }
-.value-metric > span { font-size: 12px; color: var(--muted); }
-.value-metric > strong { font-size: clamp(25px,2.7vw,40px); line-height: 1.1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.value-metric > small { color: var(--muted); font-size: 11px; }
-.value-metric strong small { font-size: 15px; font-weight: 500; color: var(--muted); }
+/* Value basis: 기록·설정·가정·추정을 구분한 계산 근거와, 답이 바뀌는 조건 */
+.basis-tag { display: inline-block; margin-right: 6px; padding: 1px 7px; border: 1px solid; border-radius: 999px; font-size: 10px; font-weight: 800; line-height: 1.6; letter-spacing: .04em; white-space: nowrap; vertical-align: 1px; }
+.basis-tag[data-kind='record'] { border-color: rgba(255,255,255,.45); color: var(--text); }
+.basis-tag[data-kind='setting'] { border-color: #316b44; color: #a0e9b1; }
+.basis-tag[data-kind='assumption'] { border-color: #73622d; color: #ffd98a; }
+.basis-tag[data-kind='estimate'] { border-color: #6b3a30; color: #f5b8a6; }
+.basis-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.basis-receipt { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 0; }
+.basis-receipt > div { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 14px; background: #111; }
+.basis-receipt dt { color: var(--muted); font-size: 12px; }
+.basis-receipt dd { margin: 0; font-size: clamp(24px,2.6vw,34px); font-weight: 700; line-height: 1.1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.basis-receipt small { color: var(--muted); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.basis-result { margin: 16px 0 0; font-size: 14px; line-height: 1.7; }
+.basis-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.basis-list li { padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: #141414; font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.basis-list li > b { margin-right: 8px; }
+.basis-action { display: inline-block; margin-left: 8px; color: #a0e9b1; font-weight: 700; text-underline-offset: 3px; white-space: nowrap; }
+.basis-action-btn { display: block; margin-top: 10px; padding: 8px 14px; font-size: 12px; }
 .value-verdict { display: flex; flex-direction: column; gap: 12px; padding: 28px; border: 1px solid rgba(255,133,104,.2); border-radius: 16px; background: rgba(255,133,104,.04); }
 .value-verdict p { margin: 0; font-size: 15px; color: #ffc2ad; }
 .value-verdict > strong { font-size: clamp(24px,3vw,40px); line-height: 1.2; letter-spacing: -.04em; }
@@ -232,9 +244,9 @@ a.btn { display: inline-block; text-decoration: none; text-align: center; }
   .value-fields { grid-template-columns: 1fr; }
   .value-next-watch { grid-template-columns: 1fr; gap: 14px; }
   .value-rate-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
-  .value-summary { grid-template-columns: 1fr; }
-  .value-metric { padding: 18px; min-height: 0; }
-  .value-metric > strong { font-size: 25px; }
+  .basis-receipt { grid-template-columns: 1fr; }
+  .basis-receipt > div { padding: 16px; }
+  .basis-list li { padding: 12px 14px; }
   .value-block h3 { font-size: 19px; }
   .value-verdict { padding: 22px 18px; }
   .value-library-tools { display: block; }

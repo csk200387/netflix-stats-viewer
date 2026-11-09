@@ -78,7 +78,7 @@ export function ShowTable({ shows }: { shows: ShowSummary[] }) {
                   {s.seasons > 1 && <span className="ep"> · 시즌 {s.seasons}개</span>}
                 </td>
                 <td><KindTag kind={s.kind} /></td>
-                <td className="num">{s.count.toLocaleString('ko-KR')}{s.kind === 'series' ? '화' : '회'}</td>
+                <td className="num">{s.count.toLocaleString('ko-KR')}{s.kind === 'series' ? '화' : '편'}</td>
                 <td className="num">{s.days}일</td>
                 <td className="num">{fmtDate(s.last)}</td>
               </tr>

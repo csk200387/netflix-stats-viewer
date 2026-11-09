@@ -270,7 +270,7 @@ export default function App() {
 
       <footer className="footer">
         <p>
-          장르를 알기 위해 작품 제목만 TMDB로 보내 조회합니다. 파일과 시청 날짜는 보내지 않습니다. This product uses the TMDB API but is not endorsed or certified by TMDB.
+          장르를 알기 위해 기록의 제목만(시리즈는 작품명) TMDB로 보내 조회합니다. 파일과 시청 날짜는 보내지 않습니다. This product uses the TMDB API but is not endorsed or certified by TMDB.
         </p>
         <p>
           시리즈·영화 구분은 제목 표기를 기준으로 한 추정값입니다. 같은 화를 다시 봐도 넷플릭스 기록은

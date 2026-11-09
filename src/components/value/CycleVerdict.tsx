@@ -40,7 +40,10 @@ export default function CycleVerdict({ report, cycle, settings, onSelectCycle, o
   const shows = cycleShows(cycle, settings)
   const rest = shows.slice(TOP_SHOWS)
   const picks = charged && !cycle.reached ? catchUpSeries(shows, projection.remaining) : []
-  const crossing = cycle.days.find((d) => d.key === cycle.firstReached)?.watches.at(-1)?.entry.show
+  // CSV에는 시각이 없어, 그날 여러 작품을 봤다면 어느 작품에서 넘었는지 알 수 없다
+  const crossShows = new Set(cycle.days.find((d) => d.key === cycle.firstReached)?.watches.map((w) => w.entry.show))
+  const crossing = crossShows.size === 1 ? [...crossShows][0] : null
+  const fallbackGross = cycle.days.reduce((sum, d) => sum + d.watches.reduce((s, w) => s + (w.source === 'default' ? w.price : 0), 0), 0)
 
   return (
     <div className="card value-block" id="value-cycle-result">
@@ -84,6 +87,11 @@ export default function CycleVerdict({ report, cycle, settings, onSelectCycle, o
       )}
       {cycle.firstReached && !cycle.reached && (
         <p className="value-help">최초 도달 뒤 광고 시간 비용이 추가되어 현재 환산액은 다시 미달입니다.</p>
+      )}
+      {fallbackGross > 0 && cycle.gross > 0 && (
+        <p className="value-help">
+          이 주기 환산액 중 {won(fallbackGross)}({percent(fallbackGross / cycle.gross)})은 장르를 확인하지 못해 기본 단가로 셌어요.
+        </p>
       )}
 
       {shows.length > 0 && (
